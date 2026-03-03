@@ -3,6 +3,8 @@
 import { loadConfig } from '../config/index.ts';
 import { startWatcher, runPollCycle } from '../services/watcher.ts';
 import { StateStore } from '../state/state-store.ts';
+import { getPullRequest } from '../sdk/azure-devops-client.ts';
+import { processPR } from '../services/pr-processor.ts';
 
 const HELP = `
 Azure DevOps Release Note Creator
@@ -11,10 +13,14 @@ Usage:
   release-notes <command>
 
 Commands:
-  watch        Start the long-running watcher (polls every N minutes)
-  run-once     Run a single poll cycle and exit
-  reset-state  Clear the processed PR state and exit
-  help         Show this help message
+  watch            Start the long-running watcher (polls every N minutes)
+  run-once         Run a single poll cycle and exit
+  test-pr <id>     Generate release notes for a single PR (dry-run, no writes)
+  reset-state      Clear the processed PR state and exit
+  help             Show this help message
+
+Options:
+  --dry-run        Read-only mode: generate but skip Azure DevOps writes
 
 Environment variables:
   AZURE_DEVOPS_PAT          Azure DevOps personal access token (required)
@@ -29,19 +35,41 @@ Environment variables:
 `.trim();
 
 const command = process.argv[2];
+const dryRun = process.argv.includes('--dry-run');
 
 switch (command) {
   case 'watch': {
     const config = loadConfig();
+    config.dryRun = dryRun;
+    if (dryRun) console.log('[DRY RUN] No writes will be made to Azure DevOps\n');
     await startWatcher(config);
     break;
   }
 
   case 'run-once': {
     const config = loadConfig();
+    config.dryRun = dryRun;
+    if (dryRun) console.log('[DRY RUN] No writes will be made to Azure DevOps\n');
     const stateStore = new StateStore(config.stateDir);
     const result = await runPollCycle(config, stateStore);
     console.log(`Done: ${result.processed} processed, ${result.skipped} skipped, ${result.errors} errors`);
+    break;
+  }
+
+  case 'test-pr': {
+    const prIdArg = process.argv[3];
+    if (!prIdArg || isNaN(Number(prIdArg))) {
+      console.error('Usage: release-notes test-pr <pr-id>');
+      process.exitCode = 1;
+      break;
+    }
+    const config = loadConfig();
+    config.dryRun = true;
+    console.log(`[DRY RUN] Testing release note generation for PR #${prIdArg}\n`);
+    const repoId = config.repoIds[0]!;
+    const pr = await getPullRequest(config, repoId, Number(prIdArg));
+    const result = await processPR(config, pr);
+    console.log(`\nDone: ${result.processed} generated, ${result.skipped} skipped, ${result.errors} errors`);
     break;
   }
 

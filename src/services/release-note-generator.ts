@@ -73,5 +73,13 @@ export function buildUserPrompt(context: ReleaseNoteContext): string {
   lines.push(`**Type:** ${context.workItemType}`);
   lines.push(`**Title:** ${context.workItemTitle}`);
 
+  const isBug = context.workItemType.toLowerCase().includes('bug');
+  lines.push('', '## Required Format');
+  if (isBug) {
+    lines.push('This is a **Bug Fix**. Use the Bug Fix structure: What, Where/When, Resolution.');
+  } else {
+    lines.push('This is a **Feature/Enhancement**. Use the Feature structure: Why, What, Impact.');
+  }
+
   return lines.join('\n');
 }

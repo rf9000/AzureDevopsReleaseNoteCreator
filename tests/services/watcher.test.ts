@@ -23,6 +23,7 @@ function mockConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     claudeModel: 'claude-sonnet-4-20250514',
     releaseNotePromptPath: './prompt.md',
     stateDir: '.state',
+    dryRun: false,
     ...overrides,
   };
 }

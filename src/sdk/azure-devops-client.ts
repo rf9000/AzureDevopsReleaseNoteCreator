@@ -123,6 +123,16 @@ export async function listCompletedPRs(
   return data.value;
 }
 
+/** Get a single pull request by ID. */
+export async function getPullRequest(
+  config: AppConfig,
+  repoId: string,
+  prId: number,
+): Promise<AzureDevOpsPullRequest> {
+  const path = `git/repositories/${repoId}/pullrequests/${prId}?api-version=7.0`;
+  return adoFetchWithRetry<AzureDevOpsPullRequest>(config, path);
+}
+
 /** Get work item references linked to a pull request. */
 export async function getPRWorkItems(
   config: AppConfig,

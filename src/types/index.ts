@@ -14,6 +14,7 @@ export interface AppConfig {
   claudeModel: string;
   releaseNotePromptPath: string;
   stateDir: string;
+  dryRun: boolean;
 }
 
 /** Shape returned by the Azure DevOps Pull Request API. */

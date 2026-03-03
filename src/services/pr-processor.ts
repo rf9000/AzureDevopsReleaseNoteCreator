@@ -150,6 +150,12 @@ export async function processPR(
       log(`  WI #${workItemId}: Generating release note...`);
       const releaseNote = await deps.generateReleaseNote(config, context);
 
+      if (config.dryRun) {
+        log(`  WI #${workItemId}: [DRY RUN] Generated:\n    "${releaseNote}"`);
+        result.processed++;
+        continue;
+      }
+
       // 3d. Update the work item
       await deps.updateWorkItemField(
         config,

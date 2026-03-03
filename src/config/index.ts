@@ -50,5 +50,6 @@ export function loadConfig(
     claudeModel: parsed.CLAUDE_MODEL,
     releaseNotePromptPath: parsed.RELEASE_NOTE_PROMPT_PATH,
     stateDir: parsed.STATE_DIR,
+    dryRun: false,
   };
 }
