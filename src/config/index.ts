@@ -12,7 +12,7 @@ const envSchema = z.object({
   RELEASE_NOTES_FIELD: z.string().default("Custom.ReleaseNotes"),
   POLL_INTERVAL_MINUTES: z.coerce.number().default(15),
   CLAUDE_MODEL: z.string().default("claude-sonnet-4-6"),
-  RELEASE_NOTE_PROMPT_PATH: z.string().default("src/prompts/release-note.md"),
+  RELEASE_NOTE_PROMPT_PATH: z.string().default(".claude/commands/do-CreateReleaseNoteContinia.md"),
   STATE_DIR: z.string().default(".state"),
 });
 

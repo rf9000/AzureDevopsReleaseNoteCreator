@@ -56,14 +56,6 @@ Create professional release notes for Continia software updates based on provide
 <p>Special characters are now properly escaped during XML generation, allowing payment exports to complete successfully.</p>
 ```
 
-## USER APPROVAL
+## OUTPUT
 
-**After presenting the release note, ask:**
-
-**Does this release note look correct?**
-
-1 - [Yes] - Accept this release note
-2 - [Modify] - Let me adjust the content
-3 - [Regenerate] - Generate a new version
-
-Wait for the user's response before proceeding.
+Return ONLY the HTML release note content. No markdown, no code fences, no explanation — just the raw HTML starting with the first `<h3>` tag.
