@@ -1,0 +1,54 @@
+import { z } from "zod";
+import type { AppConfig } from "../types/index.ts";
+
+/**
+ * Zod schema that validates and transforms process.env into AppConfig.
+ */
+const envSchema = z.object({
+  AZURE_DEVOPS_PAT: z.string().min(1, "AZURE_DEVOPS_PAT is required"),
+  AZURE_DEVOPS_ORG: z.string().min(1, "AZURE_DEVOPS_ORG is required"),
+  AZURE_DEVOPS_PROJECT: z.string().min(1, "AZURE_DEVOPS_PROJECT is required"),
+  AZURE_DEVOPS_REPO_IDS: z.string().min(1, "AZURE_DEVOPS_REPO_IDS is required"),
+  RELEASE_NOTES_FIELD: z.string().default("Custom.ReleaseNotes"),
+  POLL_INTERVAL_MINUTES: z.coerce.number().default(15),
+  CLAUDE_MODEL: z.string().default("claude-sonnet-4-6"),
+  RELEASE_NOTE_PROMPT_PATH: z.string().default("src/prompts/release-note.md"),
+  STATE_DIR: z.string().default(".state"),
+});
+
+/**
+ * Parses `process.env` and returns a fully validated `AppConfig`.
+ * Throws a descriptive error if any required variable is missing or invalid.
+ */
+export function loadConfig(
+  env: Record<string, string | undefined> = process.env,
+): AppConfig {
+  const result = envSchema.safeParse(env);
+
+  if (!result.success) {
+    const messages = result.error.issues
+      .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
+      .join("\n");
+    throw new Error(`Invalid configuration:\n${messages}`);
+  }
+
+  const parsed = result.data;
+
+  const repoIds = parsed.AZURE_DEVOPS_REPO_IDS
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0);
+
+  return {
+    org: parsed.AZURE_DEVOPS_ORG,
+    orgUrl: `https://dev.azure.com/${parsed.AZURE_DEVOPS_ORG}`,
+    project: parsed.AZURE_DEVOPS_PROJECT,
+    pat: parsed.AZURE_DEVOPS_PAT,
+    repoIds,
+    releaseNotesField: parsed.RELEASE_NOTES_FIELD,
+    pollIntervalMinutes: parsed.POLL_INTERVAL_MINUTES,
+    claudeModel: parsed.CLAUDE_MODEL,
+    releaseNotePromptPath: parsed.RELEASE_NOTE_PROMPT_PATH,
+    stateDir: parsed.STATE_DIR,
+  };
+}
