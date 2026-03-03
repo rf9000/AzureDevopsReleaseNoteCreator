@@ -11,7 +11,7 @@ const envSchema = z.object({
   AZURE_DEVOPS_REPO_IDS: z.string().min(1, "AZURE_DEVOPS_REPO_IDS is required"),
   RELEASE_NOTES_FIELD: z.string().default("Custom.ReleaseNotes"),
   POLL_INTERVAL_MINUTES: z.coerce.number().default(15),
-  CLAUDE_MODEL: z.string().default("claude-sonnet-4-6"),
+  CLAUDE_MODEL: z.string().default("claude-opus-4-6"),
   RELEASE_NOTE_PROMPT_PATH: z.string().default(".claude/commands/do-CreateReleaseNoteContinia.md"),
   STATE_DIR: z.string().default(".state"),
 });
