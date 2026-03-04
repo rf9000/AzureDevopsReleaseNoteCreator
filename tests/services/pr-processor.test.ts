@@ -468,6 +468,61 @@ describe('processPR', () => {
     expect(deps.generateReleaseNote).toHaveBeenCalledTimes(0);
   });
 
+  test('assigned-to filter with multiple names allows any matching user', async () => {
+    const config = { ...mockConfig(), assignedToFilter: 'René Frandsen, John Doe' };
+    const pr = mockPR();
+    const deps = makeDeps({
+      getPRWorkItems: mock(() =>
+        Promise.resolve([{ id: '100', url: 'https://example.com/100' }]),
+      ),
+      getWorkItem: mock(() =>
+        Promise.resolve({
+          id: 100,
+          fields: {
+            'System.Title': 'John work item',
+            'System.WorkItemType': 'Bug',
+            'System.AssignedTo': { displayName: 'John Doe' },
+          },
+          rev: 1,
+          url: 'https://example.com/100',
+        }),
+      ),
+      generateReleaseNote: mock(() => Promise.resolve('Multi-filter note')),
+    });
+
+    const result = await processPR(config, pr, deps);
+
+    expect(result).toEqual({ prId: 42, processed: 1, skipped: 0, errors: 0 });
+    expect(deps.generateReleaseNote).toHaveBeenCalledTimes(1);
+  });
+
+  test('assigned-to filter with multiple names skips non-matching user', async () => {
+    const config = { ...mockConfig(), assignedToFilter: 'René Frandsen, John Doe' };
+    const pr = mockPR();
+    const deps = makeDeps({
+      getPRWorkItems: mock(() =>
+        Promise.resolve([{ id: '100', url: 'https://example.com/100' }]),
+      ),
+      getWorkItem: mock(() =>
+        Promise.resolve({
+          id: 100,
+          fields: {
+            'System.Title': 'Someone else work',
+            'System.WorkItemType': 'Task',
+            'System.AssignedTo': { displayName: 'Other Person' },
+          },
+          rev: 1,
+          url: 'https://example.com/100',
+        }),
+      ),
+    });
+
+    const result = await processPR(config, pr, deps);
+
+    expect(result).toEqual({ prId: 42, processed: 0, skipped: 1, errors: 0 });
+    expect(deps.generateReleaseNote).toHaveBeenCalledTimes(0);
+  });
+
   test('no assigned-to filter processes all work items regardless of assignee', async () => {
     const config = mockConfig(); // assignedToFilter is null
     const pr = mockPR();
