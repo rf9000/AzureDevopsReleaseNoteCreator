@@ -10,10 +10,11 @@ const envSchema = z.object({
   AZURE_DEVOPS_PROJECT: z.string().min(1, "AZURE_DEVOPS_PROJECT is required"),
   AZURE_DEVOPS_REPO_IDS: z.string().min(1, "AZURE_DEVOPS_REPO_IDS is required"),
   RELEASE_NOTES_FIELD: z.string().default("Custom.ReleaseNotes"),
-  POLL_INTERVAL_MINUTES: z.coerce.number().default(15),
+  POLL_INTERVAL_MINUTES: z.coerce.number().default(25),
   CLAUDE_MODEL: z.string().default("claude-opus-4-6"),
   RELEASE_NOTE_PROMPT_PATH: z.string().default(".claude/commands/do-CreateReleaseNoteContinia.md"),
   STATE_DIR: z.string().default(".state"),
+  ASSIGNED_TO_FILTER: z.string().optional(),
 });
 
 /**
@@ -51,5 +52,6 @@ export function loadConfig(
     releaseNotePromptPath: parsed.RELEASE_NOTE_PROMPT_PATH,
     stateDir: parsed.STATE_DIR,
     dryRun: false,
+    assignedToFilter: parsed.ASSIGNED_TO_FILTER ?? null,
   };
 }

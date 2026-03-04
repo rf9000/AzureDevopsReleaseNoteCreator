@@ -9,6 +9,7 @@ describe('buildUserPrompt', () => {
     changedFiles: ['src/auth/login.ts', 'src/auth/config.ts'],
     workItemTitle: 'Login times out too quickly',
     workItemType: 'Bug',
+    workItemDescription: 'Users report the login page times out after 5 seconds',
   };
 
   test('includes PR title', () => {
@@ -21,9 +22,11 @@ describe('buildUserPrompt', () => {
     expect(prompt).toContain('**Description:** Increased timeout from 5s to 30s');
   });
 
-  test('omits description when empty', () => {
+  test('omits PR description when empty', () => {
     const prompt = buildUserPrompt({ ...baseContext, prDescription: '' });
-    expect(prompt).not.toContain('**Description:**');
+    // PR section should not have a description line
+    const prSection = prompt.slice(prompt.indexOf('## Pull Request'), prompt.indexOf('## Changed Files'));
+    expect(prSection).not.toContain('**Description:**');
   });
 
   test('lists changed files', () => {
@@ -50,6 +53,19 @@ describe('buildUserPrompt', () => {
     const prompt = buildUserPrompt(baseContext);
     expect(prompt).toContain('**Type:** Bug');
     expect(prompt).toContain('**Title:** Login times out too quickly');
+  });
+
+  test('includes work item description when present', () => {
+    const prompt = buildUserPrompt(baseContext);
+    expect(prompt).toContain('**Description:** Users report the login page times out after 5 seconds');
+  });
+
+  test('omits work item description when empty', () => {
+    const prompt = buildUserPrompt({ ...baseContext, workItemDescription: '' });
+    // PR description is present, but work item description should not appear after Work Item section
+    const wiSection = prompt.indexOf('## Work Item');
+    const afterWi = prompt.slice(wiSection);
+    expect(afterWi).not.toContain('**Description:**');
   });
 
   test('includes all sections in order', () => {

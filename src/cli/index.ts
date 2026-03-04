@@ -28,7 +28,7 @@ Environment variables:
   AZURE_DEVOPS_PROJECT      Azure DevOps project name (required)
   AZURE_DEVOPS_REPO_IDS     Comma-separated repository IDs (required)
   RELEASE_NOTES_FIELD       Custom field name (default: Custom.ReleaseNotes)
-  POLL_INTERVAL_MINUTES     Polling interval (default: 15)
+  POLL_INTERVAL_MINUTES     Polling interval (default: 25)
   CLAUDE_MODEL              Claude model to use (default: claude-opus-4-6)
   RELEASE_NOTE_PROMPT_PATH  Path to prompt file (default: .claude/commands/do-CreateReleaseNoteContinia.md)
   STATE_DIR                 State directory (default: .state)

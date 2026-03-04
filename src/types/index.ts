@@ -15,6 +15,8 @@ export interface AppConfig {
   releaseNotePromptPath: string;
   stateDir: string;
   dryRun: boolean;
+  /** If set, only process work items assigned to this display name. */
+  assignedToFilter: string | null;
 }
 
 /** Shape returned by the Azure DevOps Pull Request API. */

@@ -8,6 +8,7 @@ export interface ReleaseNoteContext {
   changedFiles: string[];
   workItemTitle: string;
   workItemType: string;
+  workItemDescription: string;
 }
 
 export async function generateReleaseNote(
@@ -72,6 +73,9 @@ export function buildUserPrompt(context: ReleaseNoteContext): string {
   lines.push('', '## Work Item');
   lines.push(`**Type:** ${context.workItemType}`);
   lines.push(`**Title:** ${context.workItemTitle}`);
+  if (context.workItemDescription) {
+    lines.push(`**Description:** ${context.workItemDescription}`);
+  }
 
   const isBug = context.workItemType.toLowerCase().includes('bug');
   lines.push('', '## Required Format');

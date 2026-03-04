@@ -64,7 +64,13 @@ export async function runPollCycle(
     log(`Polling repo ${repoId}...`);
 
     const prs = await deps.listCompletedPRs(config, repoId);
-    const newPRs = prs.filter(pr => !stateStore.isProcessed(pr.pullRequestId));
+    const cutoff = stateStore.lastRunAt;
+    const newPRs = prs.filter(pr => {
+      if (stateStore.isProcessed(pr.pullRequestId)) return false;
+      // Only process PRs closed after the last run (skip historical data)
+      if (cutoff && pr.closedDate && pr.closedDate <= cutoff) return false;
+      return true;
+    });
 
     log(`  Found ${prs.length} completed PRs, ${newPRs.length} unprocessed`);
 
@@ -127,6 +133,7 @@ export async function startWatcher(config: AppConfig): Promise<void> {
   log(`Starting watcher — polling every ${config.pollIntervalMinutes} minutes`);
   log(`Watching ${config.repoIds.length} repo(s)`);
   log(`${stateStore.processedCount} PRs already processed`);
+  log(`Only processing PRs closed after ${stateStore.lastRunAt}`);
 
   while (!signal.aborted) {
     try {

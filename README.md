@@ -32,7 +32,7 @@ cp .env.example .env
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `RELEASE_NOTES_FIELD` | `Custom.ReleaseNotes` | Work item field to write to |
-| `POLL_INTERVAL_MINUTES` | `15` | Polling interval for watch mode |
+| `POLL_INTERVAL_MINUTES` | `25` | Polling interval for watch mode |
 | `CLAUDE_MODEL` | `claude-opus-4-6` | Claude model to use |
 | `RELEASE_NOTE_PROMPT_PATH` | `.claude/commands/do-CreateReleaseNoteContinia.md` | Path to the prompt file |
 | `STATE_DIR` | `.state` | Directory for processed PR state |

@@ -24,6 +24,7 @@ function mockConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     releaseNotePromptPath: './prompt.md',
     stateDir: '.state',
     dryRun: false,
+    assignedToFilter: null,
     ...overrides,
   };
 }
@@ -35,7 +36,7 @@ function mockPR(overrides: Partial<AzureDevOpsPullRequest> = {}): AzureDevOpsPul
     description: 'Adds a great new feature to the system',
     status: 'completed',
     creationDate: '2025-01-01T00:00:00Z',
-    closedDate: '2025-01-02T00:00:00Z',
+    closedDate: '2099-01-01T00:00:00Z', // far future so date filter doesn't skip it
     sourceRefName: 'refs/heads/feature/new-feature',
     targetRefName: 'refs/heads/main',
     lastMergeSourceCommit: { commitId: 'source-commit-abc' },
@@ -157,6 +158,22 @@ describe('runPollCycle', () => {
     expect(result).toEqual({ processed: 0, skipped: 0, errors: 1 });
     // PR should NOT be marked as processed because errors > 0
     expect(stateStore.isProcessed(400)).toBe(false);
+  });
+
+  test('PR closed before lastRunAt is filtered out as historical', async () => {
+    const config = mockConfig();
+    // PR was closed in the past (before the state store seeded "now")
+    const pr = mockPR({ pullRequestId: 600, closedDate: '2020-01-01T00:00:00Z' });
+
+    const deps = makeDeps({
+      listCompletedPRs: mock(() => Promise.resolve([pr])),
+    });
+
+    const result = await runPollCycle(config, stateStore, deps);
+
+    expect(result).toEqual({ processed: 0, skipped: 0, errors: 0 });
+    // Should never call processPR for historical PRs
+    expect(deps.processPR).toHaveBeenCalledTimes(0);
   });
 
   test('multiple repos polls each one', async () => {

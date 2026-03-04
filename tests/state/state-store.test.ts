@@ -37,6 +37,20 @@ describe('StateStore', () => {
     expect(store.isProcessed(1)).toBe(false);
   });
 
+  it('seeds lastRunAt on first run and persists it', () => {
+    const dir = makeTmpDir();
+    const before = new Date().toISOString();
+    const store = new StateStore(dir);
+
+    // lastRunAt should be set to approximately "now" (UTC+1)
+    expect(store.lastRunAt).toBeTruthy();
+    expect(store.lastRunAt.length).toBeGreaterThan(0);
+
+    // Verify it was persisted by reloading
+    const store2 = new StateStore(dir);
+    expect(store2.lastRunAt).toBe(store.lastRunAt);
+  });
+
   it('starts fresh when the state file contains corrupt JSON', () => {
     const dir = makeTmpDir();
     const filePath = join(dir, 'processed-prs.json');

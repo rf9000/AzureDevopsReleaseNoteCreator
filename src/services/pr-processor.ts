@@ -125,7 +125,22 @@ export async function processPR(
       // 3a. Get the full work item
       const workItem = await deps.getWorkItem(config, workItemId);
 
-      // 3b. Check if release notes field is already populated
+      // 3b. Check assigned-to filter (safeguard)
+      if (config.assignedToFilter) {
+        const assignedTo = workItem.fields['System.AssignedTo'] as
+          | { displayName?: string }
+          | undefined;
+        const displayName = assignedTo?.displayName ?? '';
+        if (displayName !== config.assignedToFilter) {
+          log(
+            `  WI #${workItemId}: Assigned to "${displayName}", not "${config.assignedToFilter}", skipping`,
+          );
+          result.skipped++;
+          continue;
+        }
+      }
+
+      // 3c. Check if release notes field is already populated
       const existingNotes = workItem.fields[config.releaseNotesField];
       if (existingNotes && String(existingNotes).trim() !== '') {
         log(`  WI #${workItemId}: Release notes already exist, skipping`);
@@ -133,10 +148,13 @@ export async function processPR(
         continue;
       }
 
-      // 3c. Build context and generate release note
+      // 3d. Build context and generate release note
       const workItemTitle = String(workItem.fields['System.Title'] ?? '');
       const workItemType = String(
         workItem.fields['System.WorkItemType'] ?? '',
+      );
+      const workItemDescription = String(
+        workItem.fields['System.Description'] ?? '',
       );
 
       const context: ReleaseNoteContext = {
@@ -145,6 +163,7 @@ export async function processPR(
         changedFiles,
         workItemTitle,
         workItemType,
+        workItemDescription,
       };
 
       log(`  WI #${workItemId}: Generating release note...`);
@@ -156,7 +175,7 @@ export async function processPR(
         continue;
       }
 
-      // 3d. Update the work item
+      // 3e. Update the work item
       await deps.updateWorkItemField(
         config,
         workItemId,

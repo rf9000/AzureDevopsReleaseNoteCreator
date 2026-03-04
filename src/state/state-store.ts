@@ -2,6 +2,13 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 import type { ProcessedState } from '../types/index.ts';
 
+/** Returns the current time as an ISO string in UTC+1 (Central European Time). */
+function nowUtcPlus1(): string {
+  const now = new Date();
+  const utcPlus1 = new Date(now.getTime() + 60 * 60 * 1000);
+  return utcPlus1.toISOString().replace('Z', '+01:00');
+}
+
 export class StateStore {
   private filePath: string;
   private state: ProcessedState;
@@ -11,6 +18,12 @@ export class StateStore {
     this.filePath = join(stateDir, 'processed-prs.json');
     this.state = this.load();
     this.processedSet = new Set(this.state.processedPRIds);
+
+    // First run: seed lastRunAt with current time (UTC+1) so we only look forward
+    if (!this.state.lastRunAt) {
+      this.state.lastRunAt = nowUtcPlus1();
+      this.save();
+    }
   }
 
   private load(): ProcessedState {
@@ -59,5 +72,9 @@ export class StateStore {
 
   get processedCount(): number {
     return this.state.processedPRIds.length;
+  }
+
+  get lastRunAt(): string {
+    return this.state.lastRunAt;
   }
 }

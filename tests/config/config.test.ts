@@ -52,10 +52,11 @@ describe("loadConfig", () => {
     const config = loadConfig(validEnv);
 
     expect(config.releaseNotesField).toBe("Custom.ReleaseNotes");
-    expect(config.pollIntervalMinutes).toBe(15);
-    expect(config.claudeModel).toBe("claude-sonnet-4-6");
+    expect(config.pollIntervalMinutes).toBe(25);
+    expect(config.claudeModel).toBe("claude-opus-4-6");
     expect(config.releaseNotePromptPath).toBe(".claude/commands/do-CreateReleaseNoteContinia.md");
     expect(config.stateDir).toBe(".state");
+    expect(config.assignedToFilter).toBeNull();
   });
 
   it("overrides defaults when optional vars are provided", () => {
@@ -66,6 +67,7 @@ describe("loadConfig", () => {
       CLAUDE_MODEL: "claude-opus-4-6",
       RELEASE_NOTE_PROMPT_PATH: "custom/prompt.md",
       STATE_DIR: "/tmp/state",
+      ASSIGNED_TO_FILTER: "René Frandsen",
     };
 
     const config = loadConfig(env);
@@ -75,6 +77,7 @@ describe("loadConfig", () => {
     expect(config.claudeModel).toBe("claude-opus-4-6");
     expect(config.releaseNotePromptPath).toBe("custom/prompt.md");
     expect(config.stateDir).toBe("/tmp/state");
+    expect(config.assignedToFilter).toBe("René Frandsen");
   });
 
   it("splits repo IDs and trims whitespace", () => {

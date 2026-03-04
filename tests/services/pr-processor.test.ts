@@ -20,6 +20,7 @@ function mockConfig(): AppConfig {
     releaseNotePromptPath: './prompt.md',
     stateDir: '.state',
     dryRun: false,
+    assignedToFilter: null,
   };
 }
 
@@ -143,6 +144,7 @@ describe('processPR', () => {
       changedFiles: ['/src/auth/login.ts'],
       workItemTitle: 'Fix login bug',
       workItemType: 'Bug',
+      workItemDescription: '',
     });
 
     // Verify updateWorkItemField was called
@@ -349,6 +351,7 @@ describe('processPR', () => {
       changedFiles: [], // empty because fetch failed
       workItemTitle: 'Some feature',
       workItemType: 'User Story',
+      workItemDescription: '',
     });
   });
 
@@ -382,6 +385,115 @@ describe('processPR', () => {
       skipped: 0,
       errors: 0,
     });
+  });
+
+  test('assigned-to filter skips work items not assigned to the target user', async () => {
+    const config = { ...mockConfig(), assignedToFilter: 'René Frandsen' };
+    const pr = mockPR();
+    const deps = makeDeps({
+      getPRWorkItems: mock(() =>
+        Promise.resolve([{ id: '100', url: 'https://example.com/100' }]),
+      ),
+      getWorkItem: mock(() =>
+        Promise.resolve({
+          id: 100,
+          fields: {
+            'System.Title': 'Someone else work',
+            'System.WorkItemType': 'User Story',
+            'System.AssignedTo': { displayName: 'Other Person' },
+          },
+          rev: 1,
+          url: 'https://example.com/100',
+        }),
+      ),
+    });
+
+    const result = await processPR(config, pr, deps);
+
+    expect(result).toEqual({ prId: 42, processed: 0, skipped: 1, errors: 0 });
+    expect(deps.generateReleaseNote).toHaveBeenCalledTimes(0);
+  });
+
+  test('assigned-to filter allows work items assigned to the target user', async () => {
+    const config = { ...mockConfig(), assignedToFilter: 'René Frandsen' };
+    const pr = mockPR();
+    const deps = makeDeps({
+      getPRWorkItems: mock(() =>
+        Promise.resolve([{ id: '100', url: 'https://example.com/100' }]),
+      ),
+      getWorkItem: mock(() =>
+        Promise.resolve({
+          id: 100,
+          fields: {
+            'System.Title': 'My work item',
+            'System.WorkItemType': 'Bug',
+            'System.AssignedTo': { displayName: 'René Frandsen' },
+          },
+          rev: 1,
+          url: 'https://example.com/100',
+        }),
+      ),
+      generateReleaseNote: mock(() => Promise.resolve('Filtered note')),
+    });
+
+    const result = await processPR(config, pr, deps);
+
+    expect(result).toEqual({ prId: 42, processed: 1, skipped: 0, errors: 0 });
+    expect(deps.generateReleaseNote).toHaveBeenCalledTimes(1);
+  });
+
+  test('assigned-to filter skips unassigned work items', async () => {
+    const config = { ...mockConfig(), assignedToFilter: 'René Frandsen' };
+    const pr = mockPR();
+    const deps = makeDeps({
+      getPRWorkItems: mock(() =>
+        Promise.resolve([{ id: '100', url: 'https://example.com/100' }]),
+      ),
+      getWorkItem: mock(() =>
+        Promise.resolve({
+          id: 100,
+          fields: {
+            'System.Title': 'Unassigned item',
+            'System.WorkItemType': 'Task',
+          },
+          rev: 1,
+          url: 'https://example.com/100',
+        }),
+      ),
+    });
+
+    const result = await processPR(config, pr, deps);
+
+    expect(result).toEqual({ prId: 42, processed: 0, skipped: 1, errors: 0 });
+    expect(deps.generateReleaseNote).toHaveBeenCalledTimes(0);
+  });
+
+  test('no assigned-to filter processes all work items regardless of assignee', async () => {
+    const config = mockConfig(); // assignedToFilter is null
+    const pr = mockPR();
+    const deps = makeDeps({
+      getPRWorkItems: mock(() =>
+        Promise.resolve([{ id: '100', url: 'https://example.com/100' }]),
+      ),
+      getWorkItem: mock(() =>
+        Promise.resolve({
+          id: 100,
+          fields: {
+            'System.Title': 'Anyone work',
+            'System.WorkItemType': 'User Story',
+            'System.AssignedTo': { displayName: 'Other Person' },
+          },
+          rev: 1,
+          url: 'https://example.com/100',
+        }),
+      ),
+      generateReleaseNote: mock(() => Promise.resolve('Note for anyone')),
+    });
+
+    const result = await processPR(config, pr, deps);
+
+    expect(result).toEqual({ prId: 42, processed: 1, skipped: 0, errors: 0 });
+    expect(deps.generateReleaseNote).toHaveBeenCalledTimes(1);
   });
 
   test('work item with whitespace-only release notes field generates note', async () => {
