@@ -68,7 +68,7 @@ const defaultDeps: PRProcessorDeps = {
 // ---------------------------------------------------------------------------
 
 function log(message: string): void {
-  const ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  const ts = new Date(Date.now() + 3600000).toISOString().replace('T', ' ').slice(0, 19);
   console.log(`[${ts}] ${message}`);
 }
 

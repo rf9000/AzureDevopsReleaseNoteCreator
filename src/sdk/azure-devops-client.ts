@@ -163,7 +163,7 @@ export async function getPRChangedFiles(
   baseCommit: string,
   targetCommit: string,
 ): Promise<string[]> {
-  const path = `git/repositories/${repoId}/diffs/commits?baseVersion=${baseCommit}&targetVersion=${targetCommit}&api-version=7.0`;
+  const path = `git/repositories/${repoId}/diffs/commits?baseVersion=${baseCommit}&baseVersionType=commit&targetVersion=${targetCommit}&targetVersionType=commit&api-version=7.0`;
   const data = await adoFetchWithRetry<DiffResponse>(config, path);
   return data.changes.map((c) => c.item.path);
 }
