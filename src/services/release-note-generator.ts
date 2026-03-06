@@ -22,27 +22,36 @@ export async function generateReleaseNote(
   const userPrompt = buildUserPrompt(context);
 
   // 3. Call query() from Agent SDK
+  // Remove CLAUDECODE env var to allow nested Claude Code sessions (e.g. when
+  // this tool is launched from within Claude Code itself).
+  delete process.env.CLAUDECODE;
+
   let result: string | undefined;
 
   for await (const message of query({
     prompt: userPrompt,
     options: {
       model: config.claudeModel,
-      maxTurns: 1,
+      maxTurns: 2,
       allowedTools: [],
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       systemPrompt,
     },
   })) {
-    if (message.type === 'result' && message.subtype === 'success') {
-      result = message.result;
+    if (message.type === 'result') {
+      if (message.subtype === 'success') {
+        result = message.result;
+      } else {
+        const errors = 'errors' in message ? (message as { errors: string[] }).errors.join('; ') : message.subtype;
+        throw new Error(`Claude Agent SDK error (${message.subtype}): ${errors}`);
+      }
     }
   }
 
   // 5. Return the result text, trimmed
   if (result === undefined) {
-    throw new Error('No result received from Claude Agent SDK');
+    throw new Error('No result received from Claude Agent SDK (no result message yielded)');
   }
 
   return result.trim();
