@@ -32,7 +32,7 @@ export async function generateReleaseNote(
     prompt: userPrompt,
     options: {
       model: config.claudeModel,
-      maxTurns: 2,
+      maxTurns: 4,
       allowedTools: [],
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,

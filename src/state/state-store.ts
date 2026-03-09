@@ -47,9 +47,11 @@ export class StateStore {
     return { processedPRIds: [], lastRunAt: '' };
   }
 
-  save(): void {
+  save(advanceTimestamp: boolean = true): void {
     mkdirSync(dirname(this.filePath), { recursive: true });
-    this.state.lastRunAt = new Date().toISOString();
+    if (advanceTimestamp) {
+      this.state.lastRunAt = new Date().toISOString();
+    }
     writeFileSync(this.filePath, JSON.stringify(this.state, null, 2), 'utf-8');
   }
 

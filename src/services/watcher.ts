@@ -93,7 +93,9 @@ export async function runPollCycle(
     }
   }
 
-  stateStore.save();
+  // Only advance the lastRunAt timestamp when there are no errors, so that
+  // failed PRs (whose closedDate is before the cutoff) are retried next cycle.
+  stateStore.save(totalErrors === 0);
   return { processed: totalProcessed, skipped: totalSkipped, errors: totalErrors };
 }
 
