@@ -132,7 +132,7 @@ export async function processPR(
           | undefined;
         const displayName = assignedTo?.displayName ?? '';
         const allowedNames = config.assignedToFilter.split(',').map((n) => n.trim());
-        if (!allowedNames.includes(displayName)) {
+        if (displayName !== '' && !allowedNames.includes(displayName)) {
           log(
             `  WI #${workItemId}: Assigned to "${displayName}", not in "${config.assignedToFilter}", skipping`,
           );
