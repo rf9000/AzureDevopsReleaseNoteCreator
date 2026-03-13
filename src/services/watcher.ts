@@ -67,6 +67,8 @@ export async function runPollCycle(
     const cutoff = stateStore.lastRunAt;
     const newPRs = prs.filter(pr => {
       if (stateStore.isProcessed(pr.pullRequestId)) return false;
+      // Always retry PRs that previously failed, regardless of date
+      if (stateStore.isFailed(pr.pullRequestId)) return true;
       // Only process PRs closed after the last run (skip historical data)
       if (cutoff && pr.closedDate && pr.closedDate <= cutoff) return false;
       return true;
@@ -81,21 +83,22 @@ export async function runPollCycle(
         totalSkipped += result.skipped;
         totalErrors += result.errors;
 
-        // Only mark as processed if no errors (so failed PRs retry next cycle)
         if (result.errors === 0) {
           stateStore.markProcessed(pr.pullRequestId);
+        } else {
+          stateStore.markFailed(pr.pullRequestId);
         }
       } catch (err) {
         log(`  PR #${pr.pullRequestId}: Fatal error — ${err}`);
         totalErrors++;
-        // Don't mark as processed — will retry next cycle
+        stateStore.markFailed(pr.pullRequestId);
       }
     }
   }
 
-  // Only advance the lastRunAt timestamp when there are no errors, so that
-  // failed PRs (whose closedDate is before the cutoff) are retried next cycle.
-  stateStore.save(totalErrors === 0);
+  // Always advance lastRunAt — failed PRs are tracked explicitly in failedPRIds
+  // and bypass the date filter, so the date never drifts.
+  stateStore.save();
   return { processed: totalProcessed, skipped: totalSkipped, errors: totalErrors };
 }
 

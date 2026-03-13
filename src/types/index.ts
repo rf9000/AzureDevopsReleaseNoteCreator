@@ -62,6 +62,7 @@ export interface DiffResponse {
 /** Persisted state tracking which PRs have already been processed. */
 export interface ProcessedState {
   processedPRIds: number[];
+  failedPRIds: number[];
   lastRunAt: string;
 }
 

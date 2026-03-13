@@ -40,6 +40,7 @@ export async function generateReleaseNote(
     options: {
       model: config.claudeModel,
       maxTurns: 30,
+      allowedTools: ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch'],
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       systemPrompt,
