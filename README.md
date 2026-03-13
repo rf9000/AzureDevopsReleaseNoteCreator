@@ -36,6 +36,7 @@ cp .env.example .env
 | `CLAUDE_MODEL` | `claude-opus-4-6` | Claude model to use |
 | `RELEASE_NOTE_PROMPT_PATH` | `.claude/commands/do-CreateReleaseNoteContinia.md` | Path to the prompt file |
 | `STATE_DIR` | `.state` | Directory for processed PR state |
+| `DEBUG` | _(unset)_ | Set to any value to enable verbose SDK message logging |
 
 ## Commands
 
@@ -65,6 +66,15 @@ Fetches a specific PR by ID, generates release notes for its linked work items, 
 bun run src/cli/index.ts test-pr 43747
 ```
 
+### `process-pr <id>` — Process a single PR (production)
+
+Fetches a specific PR by ID and generates release notes for its linked work items. Unlike `test-pr`, this writes the release notes to Azure DevOps by default.
+
+```bash
+bun run src/cli/index.ts process-pr 43747
+bun run src/cli/index.ts process-pr 43747 --dry-run   # preview without writing
+```
+
 ### `reset-state` — Clear processed state
 
 Clears the local state file so all PRs are reprocessed on the next run.
@@ -75,7 +85,7 @@ bun run src/cli/index.ts reset-state
 
 ### `--dry-run` flag
 
-Available on `watch` and `run-once`. Generates release notes via Claude and prints them, but skips writing to Azure DevOps.
+Available on `watch`, `run-once`, and `process-pr`. Generates release notes via Claude and prints them, but skips writing to Azure DevOps.
 
 ## Release note format
 

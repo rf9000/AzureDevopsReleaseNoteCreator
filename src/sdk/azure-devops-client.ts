@@ -182,3 +182,22 @@ export async function updateWorkItemField(
     body: JSON.stringify([{ op: 'add', path: `/fields/${fieldName}`, value }]),
   });
 }
+
+/** Update multiple fields on a work item in a single JSON Patch. */
+export async function updateWorkItemFields(
+  config: AppConfig,
+  workItemId: number,
+  fields: Array<{ fieldName: string; value: string }>,
+): Promise<WorkItemResponse> {
+  const path = `wit/workitems/${workItemId}?api-version=7.0`;
+  const ops = fields.map((f) => ({
+    op: 'add',
+    path: `/fields/${f.fieldName}`,
+    value: f.value,
+  }));
+  return adoFetchWithRetry<WorkItemResponse>(config, path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json-patch+json' },
+    body: JSON.stringify(ops),
+  });
+}

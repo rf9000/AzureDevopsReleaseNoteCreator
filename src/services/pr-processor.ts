@@ -48,6 +48,12 @@ export interface PRProcessorDeps {
     value: string,
   ) => Promise<WorkItemResponse>;
 
+  updateWorkItemFields: (
+    config: AppConfig,
+    workItemId: number,
+    fields: Array<{ fieldName: string; value: string }>,
+  ) => Promise<WorkItemResponse>;
+
   generateReleaseNote: (
     config: AppConfig,
     context: ReleaseNoteContext,
@@ -60,6 +66,7 @@ const defaultDeps: PRProcessorDeps = {
   getWorkItem: sdk.getWorkItem,
   getPRChangedFiles: sdk.getPRChangedFiles,
   updateWorkItemField: sdk.updateWorkItemField,
+  updateWorkItemFields: sdk.updateWorkItemFields,
   generateReleaseNote: gen.generateReleaseNote,
 };
 
@@ -176,14 +183,33 @@ export async function processPR(
         continue;
       }
 
-      // 3e. Update the work item
-      await deps.updateWorkItemField(
-        config,
-        workItemId,
-        config.releaseNotesField,
-        releaseNote,
-      );
-      log(`  WI #${workItemId}: Release note written`);
+      // 3e. Update the work item — preserve Custom.Version to avoid rule validation errors
+      const state = String(workItem.fields['System.State'] ?? '');
+      const version = workItem.fields['Custom.Version'] as string | undefined;
+      log(`  WI #${workItemId}: State="${state}", Version="${version}"`);
+      const versionValue = version ?? 'No selection made';
+      const fields: Array<{ fieldName: string; value: string }> = [
+        { fieldName: config.releaseNotesField, value: releaseNote },
+        { fieldName: 'Custom.Version', value: versionValue },
+      ];
+
+      if (state === 'Closed') {
+        // Closed work items can't be edited directly — reopen to Resolved first
+        log(`  WI #${workItemId}: Reopening to Resolved to allow editing...`);
+        await deps.updateWorkItemFields(config, workItemId, [
+          { fieldName: 'System.State', value: 'Resolved' },
+          { fieldName: 'Custom.Version', value: versionValue },
+        ]);
+        // Set release note and close in one PATCH
+        await deps.updateWorkItemFields(config, workItemId, [
+          ...fields,
+          { fieldName: 'System.State', value: 'Closed' },
+        ]);
+        log(`  WI #${workItemId}: Release note written and work item re-closed`);
+      } else {
+        await deps.updateWorkItemFields(config, workItemId, fields);
+        log(`  WI #${workItemId}: Release note written`);
+      }
       result.processed++;
     } catch (err) {
       log(`  WI #${workItemId}: Error — ${err}`);

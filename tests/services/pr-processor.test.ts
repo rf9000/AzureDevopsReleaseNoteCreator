@@ -61,6 +61,14 @@ function makeDeps(overrides: Partial<PRProcessorDeps> = {}): PRProcessorDeps {
         url: 'https://example.com/100',
       }),
     ),
+    updateWorkItemFields: mock(() =>
+      Promise.resolve({
+        id: 100,
+        fields: { 'Custom.ReleaseNotes': 'Generated release note' },
+        rev: 2,
+        url: 'https://example.com/100',
+      }),
+    ),
     generateReleaseNote: mock(() => Promise.resolve('Generated release note')),
     ...overrides,
   };
@@ -147,12 +155,11 @@ describe('processPR', () => {
       workItemDescription: '',
     });
 
-    // Verify updateWorkItemField was called
-    expect(deps.updateWorkItemField).toHaveBeenCalledTimes(1);
-    const updateCall = (deps.updateWorkItemField as ReturnType<typeof mock>).mock.calls[0]!;
+    // Verify updateWorkItemFields was called
+    expect(deps.updateWorkItemFields).toHaveBeenCalledTimes(1);
+    const updateCall = (deps.updateWorkItemFields as ReturnType<typeof mock>).mock.calls[0]!;
     expect(updateCall[1]).toBe(100); // workItemId
-    expect(updateCall[2]).toBe('Custom.ReleaseNotes'); // field name
-    expect(updateCall[3]).toBe('Fixed login bug'); // value
+    expect(updateCall[2]).toEqual([{ fieldName: 'Custom.ReleaseNotes', value: 'Fixed login bug' }]);
   });
 
   test('PR with work item that already has release notes is skipped', async () => {
@@ -304,8 +311,8 @@ describe('processPR', () => {
     expect(deps.getWorkItem).toHaveBeenCalledTimes(3);
     // generateReleaseNote called for WI 100 and WI 300 (WI 200 was skipped)
     expect(deps.generateReleaseNote).toHaveBeenCalledTimes(2);
-    // updateWorkItemField called only for WI 100 (WI 300 failed during generation)
-    expect(deps.updateWorkItemField).toHaveBeenCalledTimes(1);
+    // updateWorkItemFields called only for WI 100 (WI 300 failed during generation)
+    expect(deps.updateWorkItemFields).toHaveBeenCalledTimes(1);
   });
 
   test('changed files fetch failure still processes work items', async () => {
@@ -442,7 +449,7 @@ describe('processPR', () => {
     expect(deps.generateReleaseNote).toHaveBeenCalledTimes(1);
   });
 
-  test('assigned-to filter skips unassigned work items', async () => {
+  test('assigned-to filter allows unassigned work items through', async () => {
     const config = { ...mockConfig(), assignedToFilter: 'René Frandsen' };
     const pr = mockPR();
     const deps = makeDeps({
@@ -464,8 +471,8 @@ describe('processPR', () => {
 
     const result = await processPR(config, pr, deps);
 
-    expect(result).toEqual({ prId: 42, processed: 0, skipped: 1, errors: 0 });
-    expect(deps.generateReleaseNote).toHaveBeenCalledTimes(0);
+    expect(result).toEqual({ prId: 42, processed: 1, skipped: 0, errors: 0 });
+    expect(deps.generateReleaseNote).toHaveBeenCalledTimes(1);
   });
 
   test('assigned-to filter with multiple names allows any matching user', async () => {

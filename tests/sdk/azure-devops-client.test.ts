@@ -31,6 +31,7 @@ function mockConfig(): AppConfig {
     releaseNotePromptPath: './prompt.md',
     stateDir: '.state',
     dryRun: false,
+    assignedToFilter: null,
   };
 }
 

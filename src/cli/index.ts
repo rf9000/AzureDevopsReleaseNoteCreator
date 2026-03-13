@@ -16,6 +16,7 @@ Commands:
   watch            Start the long-running watcher (polls every N minutes)
   run-once         Run a single poll cycle and exit
   test-pr <id>     Generate release notes for a single PR (dry-run, no writes)
+  process-pr <id>  Process a single PR in production mode (writes release notes)
   reset-state      Clear the processed PR state and exit
   help             Show this help message
 
@@ -70,6 +71,24 @@ switch (command) {
     const pr = await getPullRequest(config, repoId, Number(prIdArg));
     const result = await processPR(config, pr);
     console.log(`\nDone: ${result.processed} generated, ${result.skipped} skipped, ${result.errors} errors`);
+    break;
+  }
+
+  case 'process-pr': {
+    const prIdArg = process.argv[3];
+    if (!prIdArg || isNaN(Number(prIdArg))) {
+      console.error('Usage: release-notes process-pr <pr-id>');
+      process.exitCode = 1;
+      break;
+    }
+    const config = loadConfig();
+    config.dryRun = dryRun;
+    if (dryRun) console.log('[DRY RUN] No writes will be made to Azure DevOps\n');
+    console.log(`Processing release notes for PR #${prIdArg}\n`);
+    const repoId = config.repoIds[0]!;
+    const pr = await getPullRequest(config, repoId, Number(prIdArg));
+    const result = await processPR(config, pr);
+    console.log(`\nDone: ${result.processed} processed, ${result.skipped} skipped, ${result.errors} errors`);
     break;
   }
 

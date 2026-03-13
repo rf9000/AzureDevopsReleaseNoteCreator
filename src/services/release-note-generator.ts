@@ -2,6 +2,11 @@ import { readFileSync } from 'fs';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { AppConfig } from '../types/index.ts';
 
+function log(message: string): void {
+  const ts = new Date(Date.now() + 3600000).toISOString().replace('T', ' ').slice(0, 19);
+  console.log(`[${ts}] ${message}`);
+}
+
 export interface ReleaseNoteContext {
   prTitle: string;
   prDescription: string;
@@ -28,23 +33,33 @@ export async function generateReleaseNote(
 
   let result: string | undefined;
 
+  let turnCount = 0;
+
   for await (const message of query({
     prompt: userPrompt,
     options: {
       model: config.claudeModel,
-      maxTurns: 4,
+      maxTurns: 10,
       allowedTools: [],
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       systemPrompt,
     },
   })) {
+    const subtype = 'subtype' in message ? message.subtype : undefined;
+    if (process.env.DEBUG) {
+      log(`    SDK [turn ${turnCount}] type=${message.type}${subtype ? ` subtype=${subtype}` : ''}`);
+    }
+
+    if (message.type === 'assistant') {
+      turnCount++;
+    }
+
     if (message.type === 'result') {
       if (message.subtype === 'success') {
         result = message.result;
       } else {
-        const errors = 'errors' in message ? (message as { errors: string[] }).errors.join('; ') : message.subtype;
-        throw new Error(`Claude Agent SDK error (${message.subtype}): ${errors}`);
+        throw new Error(`Claude Agent SDK error (${message.subtype}): ${message.errors.join('; ')}`);
       }
     }
   }
