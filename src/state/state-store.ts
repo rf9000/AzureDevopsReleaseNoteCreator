@@ -56,7 +56,7 @@ export class StateStore {
 
   save(): void {
     mkdirSync(dirname(this.filePath), { recursive: true });
-    this.state.lastRunAt = new Date().toISOString();
+    this.state.lastRunAt = nowUtcPlus1();
     this.state.failedPRIds = Array.from(this.failedSet);
     writeFileSync(this.filePath, JSON.stringify(this.state, null, 2), 'utf-8');
   }
