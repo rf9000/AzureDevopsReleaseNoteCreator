@@ -36,7 +36,7 @@ cp .env.example .env
 | `CLAUDE_MODEL` | `claude-opus-4-6` | Claude model to use |
 | `RELEASE_NOTE_PROMPT_PATH` | `.claude/commands/do-CreateReleaseNoteContinia.md` | Path to the prompt file |
 | `STATE_DIR` | `.state` | Directory for processed PR state |
-| `DEBUG` | _(unset)_ | Set to any value to enable verbose SDK message logging |
+| `DEBUG` | _(unset)_ | Set to any value to enable verbose SDK message logging (see [Debugging](#debugging)) |
 
 ## Commands
 
@@ -93,6 +93,22 @@ Release notes follow the Continia HTML format defined in `.claude/commands/do-Cr
 
 - **Features/User Stories** get Why / What / Impact sections
 - **Bug Fixes** get What / Where-When / Resolution sections
+
+## Debugging
+
+Enable verbose SDK message logging to diagnose issues like `error_max_turns`:
+
+**PowerShell (Windows):**
+```powershell
+$env:DEBUG="true"; bun run src/cli/index.ts watch
+```
+
+**bash/zsh (Linux/macOS):**
+```bash
+DEBUG=true bun run src/cli/index.ts watch
+```
+
+To unset on PowerShell afterwards: `Remove-Item Env:DEBUG`
 
 ## Development
 
