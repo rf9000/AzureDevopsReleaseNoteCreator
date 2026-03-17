@@ -65,22 +65,20 @@ export async function runPollCycle(
 
     const prs = await deps.listCompletedPRs(config, repoId);
     const cutoff = stateStore.lastRunAt;
+    let skippedByDate = 0;
     const newPRs = prs.filter(pr => {
-      if (stateStore.isProcessed(pr.pullRequestId)) {
-        log(`  PR #${pr.pullRequestId}: skipped — already processed`);
-        return false;
-      }
+      if (stateStore.isProcessed(pr.pullRequestId)) return false;
       // Always retry PRs that previously failed, regardless of date
       if (stateStore.isFailed(pr.pullRequestId)) return true;
       // Only process PRs closed after the last run (skip historical data)
       if (cutoff && pr.closedDate && pr.closedDate <= cutoff) {
-        log(`  PR #${pr.pullRequestId}: skipped — closedDate ${pr.closedDate} <= cutoff ${cutoff}`);
+        skippedByDate++;
         return false;
       }
       return true;
     });
 
-    log(`  Found ${prs.length} completed PRs, ${newPRs.length} unprocessed`);
+    log(`  Found ${prs.length} completed PRs, ${newPRs.length} new, ${skippedByDate} before cutoff`);
 
     for (const pr of newPRs) {
       try {
