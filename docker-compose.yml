@@ -1,0 +1,24 @@
+services:
+  investigate-work-items:
+    build: ./DevOpsInvestigateWorkItems
+    env_file: .env.investigate
+    volumes:
+      - investigate-state:/app/.state
+      - /home/azureuser/.claude:/home/claude/.claude
+      - /home/azureuser/repos/continia-banking:/repos/continia-banking:ro
+      - /home/azureuser/repos/online-repos:/repos/online-repos:rw
+      - /home/azureuser/repos/setup-files:/repos/setup-files:ro
+    restart: always
+
+  release-notes:
+    build: ./AzureDevopsReleaseNoteCreator
+    env_file: .env.release-notes
+    volumes:
+      - /home/azureuser/.claude:/home/claude/.claude
+      - release-notes-state:/app/.state
+    restart: unless-stopped
+
+volumes:
+  investigate-state:
+  release-notes-state:
+  claude-auth:

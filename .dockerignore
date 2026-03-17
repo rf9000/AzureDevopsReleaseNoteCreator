@@ -1,0 +1,9 @@
+node_modules/
+.state/
+.env
+.env.*.local
+.git/
+tests/
+coverage/
+.DS_Store
+*.pem
