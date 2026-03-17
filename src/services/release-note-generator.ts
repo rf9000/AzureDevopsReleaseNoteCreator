@@ -32,6 +32,7 @@ export async function generateReleaseNote(
   delete process.env.CLAUDECODE;
 
   let result: string | undefined;
+  const assistantTexts: string[] = [];
 
   let turnCount = 0;
 
@@ -53,6 +54,16 @@ export async function generateReleaseNote(
 
     if (message.type === 'assistant') {
       turnCount++;
+      // Collect text from all assistant messages so we can find the HTML
+      // release note even if the agent adds a conversational summary afterward.
+      const msg = (message as { message?: { content?: Array<{ type: string; text?: string }> } }).message;
+      if (msg?.content) {
+        for (const block of msg.content) {
+          if (block.type === 'text' && block.text) {
+            assistantTexts.push(block.text);
+          }
+        }
+      }
     }
 
     if (message.type === 'result') {
@@ -69,7 +80,47 @@ export async function generateReleaseNote(
     throw new Error('No result received from Claude Agent SDK (no result message yielded)');
   }
 
+  // The agent may output the HTML release note in an earlier turn and then
+  // follow up with a conversational summary. If the final result doesn't
+  // contain HTML, search earlier assistant messages for the actual content.
+  return extractHtml(result, assistantTexts);
+}
+
+/**
+ * Extract the HTML release note from the agent's output. If the final result
+ * is just a conversational summary (no `<h3>` tags), fall back to earlier
+ * assistant messages that contain actual HTML.
+ */
+function extractHtml(result: string, assistantTexts: string[]): string {
+  // Best case: the final result itself contains the HTML
+  const htmlFromResult = pickHtml(result);
+  if (htmlFromResult) return htmlFromResult;
+
+  // Search assistant messages in reverse (most recent first) for HTML content
+  for (let i = assistantTexts.length - 1; i >= 0; i--) {
+    const html = pickHtml(assistantTexts[i]!);
+    if (html) return html;
+  }
+
+  // Last resort: return the raw result even though it's not proper HTML
+  log('  WARNING: No HTML <h3> tags found in agent output — returning raw result');
   return result.trim();
+}
+
+/**
+ * If the text contains `<h3>`, extract from the first `<h3>` to the last
+ * closing HTML tag. Returns undefined if no `<h3>` is found.
+ */
+function pickHtml(text: string): string | undefined {
+  const start = text.indexOf('<h3>');
+  if (start === -1) return undefined;
+
+  // Find the last closing HTML tag (</p>, </ul>, </li>, etc.)
+  const lastClose = text.lastIndexOf('</');
+  if (lastClose === -1) return text.slice(start).trim();
+
+  const endTag = text.indexOf('>', lastClose);
+  return text.slice(start, endTag + 1).trim();
 }
 
 export function buildUserPrompt(context: ReleaseNoteContext): string {

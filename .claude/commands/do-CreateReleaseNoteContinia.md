@@ -59,3 +59,5 @@ Create professional release notes for Continia software updates based on provide
 ## OUTPUT
 
 Return ONLY the HTML release note content. No markdown, no code fences, no explanation — just the raw HTML starting with the first `<h3>` tag.
+
+**CRITICAL**: Your FINAL message must contain ONLY the raw HTML. Do NOT add any summary, commentary, or explanation before or after the HTML. Do NOT say things like "Here's the release note" or "The release note has been generated". Just output the HTML and nothing else.
