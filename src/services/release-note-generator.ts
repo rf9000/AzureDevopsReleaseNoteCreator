@@ -48,9 +48,7 @@ export async function generateReleaseNote(
     },
   })) {
     const subtype = 'subtype' in message ? message.subtype : undefined;
-    if (process.env.DEBUG) {
-      log(`    SDK [turn ${turnCount}] type=${message.type}${subtype ? ` subtype=${subtype}` : ''}`);
-    }
+    log(`    SDK [turn ${turnCount}] type=${message.type}${subtype ? ` subtype=${subtype}` : ''}`);
 
     if (message.type === 'assistant') {
       turnCount++;
