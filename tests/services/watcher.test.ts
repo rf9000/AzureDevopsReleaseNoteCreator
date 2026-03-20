@@ -25,6 +25,7 @@ function mockConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     stateDir: '.state',
     dryRun: false,
     assignedToFilter: null,
+    lookbackDays: 7,
     ...overrides,
   };
 }
@@ -160,9 +161,9 @@ describe('runPollCycle', () => {
     expect(stateStore.isProcessed(400)).toBe(false);
   });
 
-  test('PR closed before lastRunAt is filtered out as historical', async () => {
-    const config = mockConfig();
-    // PR was closed in the past (before the state store seeded "now")
+  test('PR closed before lookback window is filtered out as historical', async () => {
+    const config = mockConfig({ lookbackDays: 7 });
+    // PR was closed well before the 7-day lookback window
     const pr = mockPR({ pullRequestId: 600, closedDate: '2020-01-01T00:00:00Z' });
 
     const deps = makeDeps({
@@ -172,8 +173,28 @@ describe('runPollCycle', () => {
     const result = await runPollCycle(config, stateStore, deps);
 
     expect(result).toEqual({ processed: 0, skipped: 0, errors: 0 });
-    // Should never call processPR for historical PRs
+    // Should never call processPR for PRs outside the lookback window
     expect(deps.processPR).toHaveBeenCalledTimes(0);
+  });
+
+  test('PR closed within lookback window is processed even after watcher downtime', async () => {
+    const config = mockConfig({ lookbackDays: 7 });
+    // PR closed 2 days ago — within the 7-day lookback window
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    const pr = mockPR({ pullRequestId: 700, closedDate: twoDaysAgo });
+
+    const deps = makeDeps({
+      listCompletedPRs: mock(() => Promise.resolve([pr])),
+      processPR: mock(() =>
+        Promise.resolve({ prId: 700, processed: 1, skipped: 0, errors: 0 }),
+      ),
+    });
+
+    const result = await runPollCycle(config, stateStore, deps);
+
+    expect(result).toEqual({ processed: 1, skipped: 0, errors: 0 });
+    expect(deps.processPR).toHaveBeenCalledTimes(1);
+    expect(stateStore.isProcessed(700)).toBe(true);
   });
 
   test('multiple repos polls each one', async () => {

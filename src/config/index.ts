@@ -15,6 +15,7 @@ const envSchema = z.object({
   RELEASE_NOTE_PROMPT_PATH: z.string().default(".claude/commands/do-CreateReleaseNoteContinia.md"),
   STATE_DIR: z.string().default(".state"),
   ASSIGNED_TO_FILTER: z.string().optional(),
+  LOOKBACK_DAYS: z.coerce.number().default(7),
 });
 
 /**
@@ -53,5 +54,6 @@ export function loadConfig(
     stateDir: parsed.STATE_DIR,
     dryRun: false,
     assignedToFilter: parsed.ASSIGNED_TO_FILTER ?? null,
+    lookbackDays: parsed.LOOKBACK_DAYS,
   };
 }

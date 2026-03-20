@@ -64,21 +64,21 @@ export async function runPollCycle(
     log(`Polling repo ${repoId}...`);
 
     const prs = await deps.listCompletedPRs(config, repoId);
-    const cutoff = stateStore.lastRunAt;
+    const lookbackCutoff = new Date(Date.now() - config.lookbackDays * 24 * 60 * 60 * 1000).toISOString();
     let skippedByDate = 0;
     const newPRs = prs.filter(pr => {
       if (stateStore.isProcessed(pr.pullRequestId)) return false;
       // Always retry PRs that previously failed, regardless of date
       if (stateStore.isFailed(pr.pullRequestId)) return true;
-      // Only process PRs closed after the last run (skip historical data)
-      if (cutoff && pr.closedDate && pr.closedDate <= cutoff) {
+      // Skip PRs closed before the lookback window (ignore old historical data)
+      if (pr.closedDate && pr.closedDate <= lookbackCutoff) {
         skippedByDate++;
         return false;
       }
       return true;
     });
 
-    log(`  Found ${prs.length} completed PRs, ${newPRs.length} new, ${skippedByDate} before cutoff`);
+    log(`  Found ${prs.length} completed PRs, ${newPRs.length} new, ${skippedByDate} before ${config.lookbackDays}-day lookback`);
 
     for (const pr of newPRs) {
       try {
@@ -142,7 +142,7 @@ export async function startWatcher(config: AppConfig): Promise<void> {
   log(`Starting watcher — polling every ${config.pollIntervalMinutes} minutes`);
   log(`Watching ${config.repoIds.length} repo(s)`);
   log(`${stateStore.processedCount} PRs already processed`);
-  log(`Only processing PRs closed after ${stateStore.lastRunAt}`);
+  log(`Lookback window: ${config.lookbackDays} days`);
 
   while (!signal.aborted) {
     try {

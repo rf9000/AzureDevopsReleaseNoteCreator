@@ -57,6 +57,7 @@ describe("loadConfig", () => {
     expect(config.releaseNotePromptPath).toBe(".claude/commands/do-CreateReleaseNoteContinia.md");
     expect(config.stateDir).toBe(".state");
     expect(config.assignedToFilter).toBeNull();
+    expect(config.lookbackDays).toBe(7);
   });
 
   it("overrides defaults when optional vars are provided", () => {
@@ -68,6 +69,7 @@ describe("loadConfig", () => {
       RELEASE_NOTE_PROMPT_PATH: "custom/prompt.md",
       STATE_DIR: "/tmp/state",
       ASSIGNED_TO_FILTER: "René Frandsen",
+      LOOKBACK_DAYS: "14",
     };
 
     const config = loadConfig(env);
@@ -78,6 +80,7 @@ describe("loadConfig", () => {
     expect(config.releaseNotePromptPath).toBe("custom/prompt.md");
     expect(config.stateDir).toBe("/tmp/state");
     expect(config.assignedToFilter).toBe("René Frandsen");
+    expect(config.lookbackDays).toBe(14);
   });
 
   it("splits repo IDs and trims whitespace", () => {

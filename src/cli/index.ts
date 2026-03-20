@@ -33,6 +33,7 @@ Environment variables:
   CLAUDE_MODEL              Claude model to use (default: claude-opus-4-6)
   RELEASE_NOTE_PROMPT_PATH  Path to prompt file (default: .claude/commands/do-CreateReleaseNoteContinia.md)
   STATE_DIR                 State directory (default: .state)
+  LOOKBACK_DAYS             Days to look back for completed PRs (default: 7)
 `.trim();
 
 const command = process.argv[2];

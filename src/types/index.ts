@@ -17,6 +17,8 @@ export interface AppConfig {
   dryRun: boolean;
   /** If set, only process work items assigned to this display name. */
   assignedToFilter: string | null;
+  /** Number of days to look back for completed PRs (default 7). */
+  lookbackDays: number;
 }
 
 /** Shape returned by the Azure DevOps Pull Request API. */
