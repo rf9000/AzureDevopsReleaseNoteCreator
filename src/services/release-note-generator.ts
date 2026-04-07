@@ -123,9 +123,10 @@ function extractHtml(result: string, assistantTexts: string[]): string {
     if (html) return html;
   }
 
-  // Last resort: return the raw result even though it's not proper HTML
-  log('  WARNING: No HTML <h3> tags found in agent output — returning raw result');
-  return result.trim();
+  // No valid HTML found — refuse to return garbage (e.g. auth errors, API
+  // error messages) that would be written to work items as release notes.
+  const preview = result.slice(0, 300).replace(/\n/g, ' ');
+  throw new Error(`Release note validation failed — output contains no <h3> tags. Result preview: ${preview}`);
 }
 
 /**
