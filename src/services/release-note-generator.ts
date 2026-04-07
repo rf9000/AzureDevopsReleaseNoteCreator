@@ -35,46 +35,69 @@ export async function generateReleaseNote(
   const assistantTexts: string[] = [];
 
   let turnCount = 0;
+  let loopError: unknown;
 
-  for await (const message of query({
-    prompt: userPrompt,
-    options: {
-      model: config.claudeModel,
-      maxTurns: 30,
-      allowedTools: ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch'],
-      permissionMode: 'bypassPermissions',
-      allowDangerouslySkipPermissions: true,
-      systemPrompt,
-    },
-  })) {
-    const subtype = 'subtype' in message ? message.subtype : undefined;
-    log(`    SDK [turn ${turnCount}] type=${message.type}${subtype ? ` subtype=${subtype}` : ''}`);
+  try {
+    for await (const message of query({
+      prompt: userPrompt,
+      options: {
+        model: config.claudeModel,
+        maxTurns: 30,
+        allowedTools: ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch'],
+        permissionMode: 'bypassPermissions',
+        allowDangerouslySkipPermissions: true,
+        systemPrompt,
+      },
+    })) {
+      const subtype = 'subtype' in message ? message.subtype : undefined;
+      log(`    SDK [turn ${turnCount}] type=${message.type}${subtype ? ` subtype=${subtype}` : ''}`);
 
-    if (message.type === 'assistant') {
-      turnCount++;
-      // Collect text from all assistant messages so we can find the HTML
-      // release note even if the agent adds a conversational summary afterward.
-      const msg = (message as { message?: { content?: Array<{ type: string; text?: string }> } }).message;
-      if (msg?.content) {
-        for (const block of msg.content) {
-          if (block.type === 'text' && block.text) {
-            assistantTexts.push(block.text);
+      if (message.type === 'assistant') {
+        turnCount++;
+        // Collect text from all assistant messages so we can find the HTML
+        // release note even if the agent adds a conversational summary afterward.
+        const msg = (message as { message?: { content?: Array<{ type: string; text?: string }> } }).message;
+        if (msg?.content) {
+          for (const block of msg.content) {
+            if (block.type === 'text' && block.text) {
+              assistantTexts.push(block.text);
+            }
           }
         }
       }
-    }
 
-    if (message.type === 'result') {
-      if (message.subtype === 'success') {
-        result = message.result;
-      } else {
-        throw new Error(`Claude Agent SDK error (${message.subtype}): ${message.errors.join('; ')}`);
+      if (message.type === 'result') {
+        if (message.subtype === 'success') {
+          result = message.result;
+        } else {
+          const errors = 'errors' in message ? (message as { errors: string[] }).errors.join('; ') : 'unknown';
+          throw new Error(`Claude Agent SDK error (${message.subtype}): ${errors}`);
+        }
+        break;
       }
+    }
+  } catch (err) {
+    loopError = err;
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const errStack = err instanceof Error ? err.stack : undefined;
+    log(`    SDK loop error: ${errMsg}`);
+    if (errStack) log(`    SDK stack: ${errStack}`);
+    if (assistantTexts.length > 0) {
+      log(`    SDK collected ${assistantTexts.length} assistant text block(s) before error`);
+    }
+    // If we already got a successful result before the process crashed,
+    // log a warning but continue — the release note was generated.
+    if (result !== undefined) {
+      log(`    SDK result was already received — continuing despite process exit error`);
     }
   }
 
   // 5. Return the result text, trimmed
   if (result === undefined) {
+    // Re-throw the original error if we have one, otherwise a generic message
+    if (loopError) {
+      throw loopError;
+    }
     throw new Error('No result received from Claude Agent SDK (no result message yielded)');
   }
 
