@@ -67,6 +67,13 @@ export async function generateReleaseNote(
       }
 
       if (message.type === 'result') {
+        const cost = 'total_cost_usd' in message ? (message as { total_cost_usd: number }).total_cost_usd : undefined;
+        const usage = 'usage' in message ? (message as { usage: { input_tokens?: number; output_tokens?: number } }).usage : undefined;
+        const turns = 'num_turns' in message ? (message as { num_turns: number }).num_turns : undefined;
+        if (cost !== undefined || usage || turns !== undefined) {
+          log(`    Cost: $${(cost ?? 0).toFixed(4)} | ${usage?.input_tokens ?? 0} in / ${usage?.output_tokens ?? 0} out | ${turns ?? 0} turns`);
+        }
+
         if (message.subtype === 'success') {
           result = message.result;
         } else {
