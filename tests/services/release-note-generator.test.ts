@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { buildUserPrompt } from '../../src/services/release-note-generator.ts';
+import { buildUserPrompt, extractHtml } from '../../src/services/release-note-generator.ts';
 import type { ReleaseNoteContext } from '../../src/services/release-note-generator.ts';
 
 describe('buildUserPrompt', () => {
@@ -75,5 +75,52 @@ describe('buildUserPrompt', () => {
     const wiSection = prompt.indexOf('## Work Item');
     expect(prSection).toBeLessThan(filesSection);
     expect(filesSection).toBeLessThan(wiSection);
+  });
+
+  test('format hint does not request <h3>-style section headers', () => {
+    const bug = buildUserPrompt(baseContext);
+    const feature = buildUserPrompt({ ...baseContext, workItemType: 'User Story' });
+    // The prompt forbids headings; the per-request hint must not reintroduce
+    // the old Why/What/Impact / What/Where-When/Resolution header structure.
+    expect(bug).not.toContain('Why, What, Impact');
+    expect(feature).not.toContain('Why, What, Impact');
+    expect(bug).toContain('flowing-prose');
+    expect(feature).toContain('flowing-prose');
+  });
+});
+
+describe('extractHtml', () => {
+  // Regression: the prompt now produces header-free prose. A note with no
+  // <h3> must still be accepted (previously this threw "no <h3> tags").
+  test('accepts header-free prose with only <p>', () => {
+    const note = '<p>The export now escapes special characters, so it completes successfully.</p>';
+    expect(extractHtml(note, [])).toBe(note);
+  });
+
+  test('accepts a note that starts with <ul>', () => {
+    const note = '<ul><li><em>The Recipient Bank Account must have a value.</em></li></ul>';
+    expect(extractHtml(note, [])).toBe(note);
+  });
+
+  test('still accepts legacy notes that start with <h3>', () => {
+    const note = '<h3>What</h3><p>Something changed.</p>';
+    expect(extractHtml(note, [])).toBe(note);
+  });
+
+  test('strips a conversational preamble before the HTML', () => {
+    const result = 'Here is the release note for this change:\n\n<p>It is now possible to do the thing.</p>';
+    expect(extractHtml(result, [])).toBe('<p>It is now possible to do the thing.</p>');
+  });
+
+  test('falls back to an earlier assistant message when the result has no HTML', () => {
+    const result = 'Does this release note look correct?';
+    const earlier = ['<p>The login timeout has been increased to 30 seconds.</p>'];
+    expect(extractHtml(result, earlier)).toBe(earlier[0]);
+  });
+
+  test('throws when no HTML is present anywhere', () => {
+    expect(() => extractHtml('Authentication failed: invalid token', [])).toThrow(
+      /output contains no HTML tags/,
+    );
   });
 });

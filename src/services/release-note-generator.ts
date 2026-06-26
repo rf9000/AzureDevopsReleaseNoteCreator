@@ -118,10 +118,10 @@ export async function generateReleaseNote(
 
 /**
  * Extract the HTML release note from the agent's output. If the final result
- * is just a conversational summary (no `<h3>` tags), fall back to earlier
- * assistant messages that contain actual HTML.
+ * is just a conversational summary (no HTML), fall back to earlier assistant
+ * messages that contain actual HTML.
  */
-function extractHtml(result: string, assistantTexts: string[]): string {
+export function extractHtml(result: string, assistantTexts: string[]): string {
   // Best case: the final result itself contains the HTML
   const htmlFromResult = pickHtml(result);
   if (htmlFromResult) return htmlFromResult;
@@ -135,16 +135,24 @@ function extractHtml(result: string, assistantTexts: string[]): string {
   // No valid HTML found — refuse to return garbage (e.g. auth errors, API
   // error messages) that would be written to work items as release notes.
   const preview = result.slice(0, 300).replace(/\n/g, ' ');
-  throw new Error(`Release note validation failed — output contains no <h3> tags. Result preview: ${preview}`);
+  throw new Error(`Release note validation failed — output contains no HTML tags. Result preview: ${preview}`);
 }
 
 /**
- * If the text contains `<h3>`, extract from the first `<h3>` to the last
- * closing HTML tag. Returns undefined if no `<h3>` is found.
+ * Block-level tag that marks the start of the HTML release note. The note is
+ * header-free flowing prose (typically `<p>`/`<ul>`), but headings are still
+ * accepted so older notes keep extracting cleanly.
+ */
+const HTML_START_TAG = /<(?:h[1-6]|p|ul|ol)\b[^>]*>/i;
+
+/**
+ * If the text contains a block-level HTML tag, extract from the first such tag
+ * to the last closing HTML tag. Returns undefined if no HTML is found.
  */
 function pickHtml(text: string): string | undefined {
-  const start = text.indexOf('<h3>');
-  if (start === -1) return undefined;
+  const match = text.match(HTML_START_TAG);
+  if (!match || match.index === undefined) return undefined;
+  const start = match.index;
 
   // Find the last closing HTML tag (</p>, </ul>, </li>, etc.)
   const lastClose = text.lastIndexOf('</');
@@ -186,9 +194,15 @@ export function buildUserPrompt(context: ReleaseNoteContext): string {
   const isBug = context.workItemType.toLowerCase().includes('bug');
   lines.push('', '## Required Format');
   if (isBug) {
-    lines.push('This is a **Bug Fix**. Use the Bug Fix structure: What, Where/When, Resolution.');
+    lines.push(
+      'This is a **Bug Fix**. Write header-free flowing-prose HTML: describe the issue and where/when ' +
+        'it occurred (include any error message), then the resolution.',
+    );
   } else {
-    lines.push('This is a **Feature/Enhancement**. Use the Feature structure: Why, What, Impact.');
+    lines.push(
+      'This is a **Feature/Enhancement**. Write header-free flowing-prose HTML: explain the new behavior ' +
+        'and its value to the customer (use "Previously, …" to contrast the old behavior where relevant).',
+    );
   }
 
   return lines.join('\n');
