@@ -65,6 +65,12 @@ You output **only the description**, as **flowing-prose HTML**.
 
 ## CONTENT GUIDANCE
 
+- **Focus on the primary change — the note is not a changelog.** A work item often touches several
+  things. Lead with the single user-facing change that matters most and give it the space it needs.
+  Mention secondary changes only briefly (a clause or short sentence), and **omit purely technical or
+  enabling changes** a customer cannot see or act on (e.g. tables made public for extensibility,
+  internal refactors, minor tooltip wording). If two genuinely distinct user-facing changes exist,
+  keep the lesser one to a sentence.
 - **Features (user stories)** — explain the business value or problem being solved, what the feature
   does and why it matters, and how/when it affects customers. Avoid technical implementation detail
   unless it is genuinely relevant.
@@ -129,6 +135,8 @@ show the user a note that fails them:
 - [ ] Bold (`<strong>`) is used for real UI elements only; non-unique terms (cue, document card,
       document journal, FactBox, FastTab, Role Center), product names, and generic words
       (field/page/option/column) are **not** bold.
+- [ ] Focused on the primary user-facing change; secondary points kept brief and pure implementation
+      details (extensibility, refactors) omitted.
 - [ ] Reads as concise flowing prose (prefer one paragraph); no trailing spaces or empty lines.
 
 ## USER APPROVAL
