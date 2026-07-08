@@ -71,6 +71,12 @@ export interface WorkItemProcessorDeps {
     fields: Array<{ fieldName: string; value: string; op?: 'add' | 'replace' }>,
   ) => Promise<WorkItemResponse>;
 
+  addWorkItemComment: (
+    config: AppConfig,
+    workItemId: number,
+    commentHtml: string,
+  ) => Promise<void>;
+
   generateReleaseNote: (
     config: AppConfig,
     context: ReleaseNoteContext,
@@ -90,6 +96,7 @@ const defaultDeps: WorkItemProcessorDeps = {
   getPRChangedFiles: sdk.getPRChangedFiles,
   getPRThreadComments: sdk.getPRThreadComments,
   updateWorkItemFields: sdk.updateWorkItemFields,
+  addWorkItemComment: sdk.addWorkItemComment,
   generateReleaseNote: gen.generateReleaseNote,
   queryWorkItemsByTag: sdk.queryWorkItemsByTag,
 };
@@ -167,6 +174,67 @@ export function removeTag(tagsField: string | undefined, tag: string): string {
 export function appendNote(existing: string, note: string): string {
   if (existing.trim() === '') return note;
   return existing + RELEASE_NOTE_SEPARATOR + note;
+}
+
+/** Which processing phase failed, used to pick the failure-comment wording. */
+export type FailureCategory = 'generate' | 'save';
+
+/** Short, friendly HTML failure-comment text, keyed by category. */
+export const FAILURE_COMMENT: Record<FailureCategory, string> = {
+  generate:
+    "⚠️ <b>Release-note tool couldn't generate a release note here.</b><br/>It will retry automatically on the next poll.",
+  save:
+    "⚠️ <b>Release-note tool generated a note but couldn't save it to this work item</b> — likely a permissions or state issue.<br/>It will retry automatically.",
+};
+
+/**
+ * Apostrophe-free, category-specific substring present in each comment above.
+ * Used to detect an already-posted failure comment so it is not re-posted every
+ * poll. Apostrophe-free so the match is robust to however ADO renders the text.
+ */
+export const FAILURE_SIGNATURE: Record<FailureCategory, string> = {
+  generate: 'generate a release note',
+  save: 'save it to this work item',
+};
+
+/**
+ * Post a one-time failure comment on a work item. Scans existing comments for
+ * this category's signature and skips if it is already present, so a
+ * persistently failing item (whose tag is kept for retry) is not commented on
+ * every poll. Skips entirely in dry-run. Never throws — failing to comment must
+ * not mask the original processing error.
+ */
+async function postFailureCommentOnce(
+  config: AppConfig,
+  workItemId: number,
+  category: FailureCategory,
+  deps: WorkItemProcessorDeps,
+): Promise<void> {
+  if (config.dryRun) {
+    log(`  WI #${workItemId}: [DRY RUN] would post failure comment (${category})`);
+    return;
+  }
+
+  const signature = FAILURE_SIGNATURE[category].toLowerCase();
+  let existing: string[];
+  try {
+    existing = await deps.getWorkItemComments(config, workItemId);
+  } catch (err) {
+    log(`  WI #${workItemId}: Warning — could not read comments to post failure notice: ${err}`);
+    return;
+  }
+
+  if (existing.some((c) => c.toLowerCase().includes(signature))) {
+    log(`  WI #${workItemId}: Failure comment already present (${category})`);
+    return;
+  }
+
+  try {
+    await deps.addWorkItemComment(config, workItemId, FAILURE_COMMENT[category]);
+    log(`  WI #${workItemId}: Posted failure comment (${category})`);
+  } catch (err) {
+    log(`  WI #${workItemId}: Warning — could not post failure comment: ${err}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -255,6 +323,8 @@ export async function processTaggedWorkItem(
   const workItemTitle = String(workItem.fields['System.Title'] ?? '');
   log(`Processing tagged WI #${workItemId}: ${workItemTitle}`);
 
+  let failureCategory: FailureCategory = 'generate';
+
   try {
     // 1. Gather related-PR context (may be none)
     const refs = parsePullRequestRefs(workItem.relations);
@@ -311,6 +381,9 @@ export async function processTaggedWorkItem(
       { fieldName: 'Custom.Version', value: versionValue },
     ];
 
+    // Everything past this point is the ADO write phase.
+    failureCategory = 'save';
+
     if (state === 'Closed') {
       // Closed work items can't be edited directly — reopen to Resolved first.
       log(`  WI #${workItemId}: Reopening to Resolved to allow editing...`);
@@ -332,7 +405,9 @@ export async function processTaggedWorkItem(
   } catch (err) {
     log(`  WI #${workItemId}: Error — ${err}`);
     result.errors++;
-    // Tag is left in place so the item is retried on the next scan.
+    // Tell the human on the work item why nothing happened (once per category);
+    // the tag is left in place so the item is retried on the next scan.
+    await postFailureCommentOnce(config, workItemId, failureCategory, deps);
   }
 
   return result;
