@@ -180,7 +180,7 @@ export function appendNote(existing: string, note: string): string {
 export type FailureCategory = 'generate' | 'save';
 
 /** Short, friendly HTML failure-comment text, keyed by category. */
-const FAILURE_COMMENT: Record<FailureCategory, string> = {
+export const FAILURE_COMMENT: Record<FailureCategory, string> = {
   generate:
     "⚠️ <b>Release-note tool couldn't generate a release note here.</b><br/>It will retry automatically on the next poll.",
   save:
@@ -192,7 +192,7 @@ const FAILURE_COMMENT: Record<FailureCategory, string> = {
  * Used to detect an already-posted failure comment so it is not re-posted every
  * poll. Apostrophe-free so the match is robust to however ADO renders the text.
  */
-const FAILURE_SIGNATURE: Record<FailureCategory, string> = {
+export const FAILURE_SIGNATURE: Record<FailureCategory, string> = {
   generate: 'generate a release note',
   save: 'save it to this work item',
 };

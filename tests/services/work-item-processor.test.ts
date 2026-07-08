@@ -11,6 +11,8 @@ import {
   processTaggedWorkItem,
   scanTaggedWorkItems,
   RELEASE_NOTE_SEPARATOR,
+  FAILURE_COMMENT,
+  FAILURE_SIGNATURE,
 } from '../../src/services/work-item-processor.ts';
 import type { WorkItemProcessorDeps } from '../../src/services/work-item-processor.ts';
 
@@ -493,5 +495,13 @@ describe('failure comments', () => {
 
     expect(result.errors).toBe(1);
     expect(addComment).toHaveBeenCalledTimes(0);
+  });
+
+  test('each failure comment contains its detection signature (idempotency invariant)', () => {
+    for (const category of ['generate', 'save'] as const) {
+      expect(FAILURE_COMMENT[category].toLowerCase()).toContain(
+        FAILURE_SIGNATURE[category].toLowerCase(),
+      );
+    }
   });
 });
