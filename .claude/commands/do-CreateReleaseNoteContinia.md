@@ -67,10 +67,12 @@ You output **only the description**, as **flowing-prose HTML**.
 
 - **Focus on the primary change — the note is not a changelog.** A work item often touches several
   things. Lead with the single user-facing change that matters most and give it the space it needs.
-  Mention secondary changes only briefly (a clause or short sentence), and **omit purely technical or
-  enabling changes** a customer cannot see or act on (e.g. tables made public for extensibility,
-  internal refactors, minor tooltip wording). If two genuinely distinct user-facing changes exist,
-  keep the lesser one to a sentence.
+  If a second, genuinely distinct user-facing change exists, keep it to a sentence. **Stop once those
+  are covered** — do not append a survey of the remaining changes.
+- **Never mention these, at all** (not even a clause): documentation-only changes such as tooltip or
+  help-text wording; extensibility/API-surface changes such as making tables, fields, or procedures
+  public; and internal refactors. A customer cannot see or act on them, so they do not belong in a
+  release note. If in doubt whether a change is user-facing, leave it out.
 - **Features (user stories)** — explain the business value or problem being solved, what the feature
   does and why it matters, and how/when it affects customers. Avoid technical implementation detail
   unless it is genuinely relevant.
@@ -135,8 +137,9 @@ show the user a note that fails them:
 - [ ] Bold (`<strong>`) is used for real UI elements only; non-unique terms (cue, document card,
       document journal, FactBox, FastTab, Role Center), product names, and generic words
       (field/page/option/column) are **not** bold.
-- [ ] Focused on the primary user-facing change; secondary points kept brief and pure implementation
-      details (extensibility, refactors) omitted.
+- [ ] Focused on the primary user-facing change; secondary point (if any) kept to a sentence. NO
+      documentation-only changes (tooltip/help-text wording), extensibility/API-surface changes, or
+      internal refactors mentioned anywhere in the note.
 - [ ] Reads as concise flowing prose (prefer one paragraph); no trailing spaces or empty lines.
 
 ## USER APPROVAL
