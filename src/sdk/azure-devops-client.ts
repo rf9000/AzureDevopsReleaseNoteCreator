@@ -249,15 +249,21 @@ export async function updateWorkItemField(
   });
 }
 
-/** Update multiple fields on a work item in a single JSON Patch. */
+/**
+ * Update multiple fields on a work item in a single JSON Patch.
+ *
+ * Each field defaults to `op: 'add'`. Pass `op: 'replace'` for fields that must
+ * be overwritten rather than merged — notably `System.Tags`, where `add` unions
+ * the new value with the existing tags (so it can never remove a tag).
+ */
 export async function updateWorkItemFields(
   config: AppConfig,
   workItemId: number,
-  fields: Array<{ fieldName: string; value: string }>,
+  fields: Array<{ fieldName: string; value: string; op?: 'add' | 'replace' }>,
 ): Promise<WorkItemResponse> {
   const path = `wit/workitems/${workItemId}?api-version=7.0`;
   const ops = fields.map((f) => ({
-    op: 'add',
+    op: f.op ?? 'add',
     path: `/fields/${f.fieldName}`,
     value: f.value,
   }));
