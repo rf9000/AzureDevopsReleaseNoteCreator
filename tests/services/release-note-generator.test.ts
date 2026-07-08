@@ -77,6 +77,70 @@ describe('buildUserPrompt', () => {
     expect(filesSection).toBeLessThan(wiSection);
   });
 
+  test('includes work item comments section when present', () => {
+    const prompt = buildUserPrompt({
+      ...baseContext,
+      workItemComments: ['First comment', 'Second comment'],
+    });
+    expect(prompt).toContain('## Work Item Comments');
+    expect(prompt).toContain('- First comment');
+    expect(prompt).toContain('- Second comment');
+  });
+
+  test('includes PR comments section when present', () => {
+    const prompt = buildUserPrompt({
+      ...baseContext,
+      prComments: ['Reviewer note about edge case'],
+    });
+    expect(prompt).toContain('## Pull Request Comments');
+    expect(prompt).toContain('- Reviewer note about edge case');
+  });
+
+  test('includes additional PR descriptions section when present', () => {
+    const prompt = buildUserPrompt({
+      ...baseContext,
+      additionalPrDescriptions: ['Second PR: refactors the parser'],
+    });
+    expect(prompt).toContain('## Additional Pull Requests');
+    expect(prompt).toContain('- Second PR: refactors the parser');
+  });
+
+  test('output is unchanged when new optional fields are absent', () => {
+    // Guards the PR-driven flow: a context without the new fields must produce
+    // exactly the same prompt it did before those fields existed.
+    const prompt = buildUserPrompt(baseContext);
+    expect(prompt).not.toContain('## Work Item Comments');
+    expect(prompt).not.toContain('## Pull Request Comments');
+    expect(prompt).not.toContain('## Additional Pull Requests');
+  });
+
+  test('omits comment sections when arrays are empty', () => {
+    const prompt = buildUserPrompt({
+      ...baseContext,
+      workItemComments: [],
+      prComments: [],
+      additionalPrDescriptions: [],
+    });
+    expect(prompt).not.toContain('## Work Item Comments');
+    expect(prompt).not.toContain('## Pull Request Comments');
+    expect(prompt).not.toContain('## Additional Pull Requests');
+  });
+
+  test('renders with no PR (work-item-only context)', () => {
+    const prompt = buildUserPrompt({
+      prTitle: '',
+      prDescription: '',
+      changedFiles: [],
+      workItemTitle: 'Manual note request',
+      workItemType: 'User Story',
+      workItemDescription: 'Please document this',
+      workItemComments: ['A clarifying comment'],
+    });
+    expect(prompt).toContain('## Work Item');
+    expect(prompt).toContain('**Title:** Manual note request');
+    expect(prompt).toContain('## Work Item Comments');
+  });
+
   test('format hint does not request <h3>-style section headers', () => {
     const bug = buildUserPrompt(baseContext);
     const feature = buildUserPrompt({ ...baseContext, workItemType: 'User Story' });
@@ -115,7 +179,7 @@ describe('extractHtml', () => {
   test('falls back to an earlier assistant message when the result has no HTML', () => {
     const result = 'Does this release note look correct?';
     const earlier = ['<p>The login timeout has been increased to 30 seconds.</p>'];
-    expect(extractHtml(result, earlier)).toBe(earlier[0]);
+    expect(extractHtml(result, earlier)).toBe(earlier[0]!);
   });
 
   test('throws when no HTML is present anywhere', () => {

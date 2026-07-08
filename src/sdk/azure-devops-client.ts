@@ -168,6 +168,72 @@ export async function getPRChangedFiles(
   return data.changes.map((c) => c.item.path);
 }
 
+/**
+ * Query work item IDs that carry a given tag (WIQL).
+ *
+ * WIQL returns references only (IDs) — hydrate each with `getWorkItem` to read fields/relations.
+ */
+export async function queryWorkItemsByTag(
+  config: AppConfig,
+  tag: string,
+): Promise<number[]> {
+  // Escape single quotes in the tag to keep the WIQL string valid.
+  const safeTag = tag.replace(/'/g, "''");
+  const query = `SELECT [System.Id] FROM WorkItems WHERE [System.Tags] CONTAINS '${safeTag}'`;
+  const data = await adoFetchWithRetry<{ workItems?: Array<{ id: number }> }>(
+    config,
+    `wit/wiql?api-version=7.0`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ query }),
+    },
+  );
+  return (data.workItems ?? []).map((w) => w.id);
+}
+
+/** Fetch the discussion comments on a work item (most recent revision text). */
+export async function getWorkItemComments(
+  config: AppConfig,
+  workItemId: number,
+): Promise<string[]> {
+  const path = `wit/workItems/${workItemId}/comments?api-version=7.0-preview.3`;
+  const data = await adoFetchWithRetry<{ comments?: Array<{ text?: string }> }>(
+    config,
+    path,
+  );
+  return (data.comments ?? [])
+    .map((c) => c.text ?? '')
+    .filter((t) => t.trim() !== '');
+}
+
+/**
+ * Fetch human discussion comments across all threads on a pull request.
+ * Skips system-generated entries (e.g. auto-complete, status changes) and deleted comments.
+ */
+export async function getPRThreadComments(
+  config: AppConfig,
+  repoId: string,
+  prId: number,
+): Promise<string[]> {
+  const path = `git/repositories/${repoId}/pullrequests/${prId}/threads?api-version=7.0`;
+  const data = await adoFetchWithRetry<{
+    value?: Array<{
+      comments?: Array<{ commentType?: string; content?: string; isDeleted?: boolean }>;
+    }>;
+  }>(config, path);
+
+  const texts: string[] = [];
+  for (const thread of data.value ?? []) {
+    for (const comment of thread.comments ?? []) {
+      if (comment.isDeleted) continue;
+      if (comment.commentType && comment.commentType !== 'text') continue;
+      const content = (comment.content ?? '').trim();
+      if (content !== '') texts.push(content);
+    }
+  }
+  return texts;
+}
+
 /** Update (or add) a field on a work item using JSON Patch. */
 export async function updateWorkItemField(
   config: AppConfig,

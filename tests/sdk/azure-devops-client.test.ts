@@ -9,6 +9,9 @@ import {
   getWorkItem,
   getPRChangedFiles,
   updateWorkItemField,
+  queryWorkItemsByTag,
+  getWorkItemComments,
+  getPRThreadComments,
 } from '../../src/sdk/azure-devops-client.ts';
 
 // ---------------------------------------------------------------------------
@@ -32,6 +35,8 @@ function mockConfig(): AppConfig {
     stateDir: '.state',
     dryRun: false,
     assignedToFilter: null,
+    lookbackDays: 7,
+    releaseNoteTag: 'create-releasenote',
   };
 }
 
@@ -326,6 +331,116 @@ describe('updateWorkItemField', () => {
     expect(body).toEqual([
       { op: 'add', path: '/fields/Custom.ReleaseNotes', value: 'New notes' },
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// queryWorkItemsByTag
+// ---------------------------------------------------------------------------
+
+describe('queryWorkItemsByTag', () => {
+  test('POSTs a WIQL query filtering on the tag and returns work item IDs', async () => {
+    setMockFetch({ workItems: [{ id: 100 }, { id: 200 }] });
+    const config = mockConfig();
+
+    const result = await queryWorkItemsByTag(config, 'create-releasenote');
+
+    expect(result).toEqual([100, 200]);
+
+    const call = mockFn.mock.calls[0]!;
+    const url = call[0] as string;
+    const init = call[1] as RequestInit;
+
+    expect(url).toContain('wit/wiql');
+    expect(url).toContain('api-version=7.0');
+    expect(init.method).toBe('POST');
+
+    const body = JSON.parse(init.body as string) as { query: string };
+    expect(body.query).toContain("[System.Tags] CONTAINS 'create-releasenote'");
+    expect(body.query).toContain('[System.Id]');
+  });
+
+  test('returns empty array when no work items match', async () => {
+    setMockFetch({ workItems: [] });
+    const config = mockConfig();
+
+    const result = await queryWorkItemsByTag(config, 'create-releasenote');
+
+    expect(result).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getWorkItemComments
+// ---------------------------------------------------------------------------
+
+describe('getWorkItemComments', () => {
+  test('builds correct URL and returns comment texts', async () => {
+    setMockFetch({
+      comments: [
+        { text: 'First comment' },
+        { text: 'Second comment' },
+      ],
+    });
+    const config = mockConfig();
+
+    const result = await getWorkItemComments(config, 100);
+
+    expect(result).toEqual(['First comment', 'Second comment']);
+    const url = mockFn.mock.calls[0]![0] as string;
+    expect(url).toContain('wit/workItems/100/comments');
+    expect(url).toContain('api-version=7.0-preview.3');
+  });
+
+  test('returns empty array when there are no comments', async () => {
+    setMockFetch({ comments: [] });
+    const config = mockConfig();
+
+    const result = await getWorkItemComments(config, 100);
+
+    expect(result).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getPRThreadComments
+// ---------------------------------------------------------------------------
+
+describe('getPRThreadComments', () => {
+  test('flattens human text comments and skips system/deleted', async () => {
+    setMockFetch({
+      value: [
+        {
+          comments: [
+            { commentType: 'text', content: 'Looks good', isDeleted: false },
+            { commentType: 'system', content: 'set auto-complete', isDeleted: false },
+          ],
+        },
+        {
+          comments: [
+            { commentType: 'text', content: 'Please fix the typo', isDeleted: false },
+            { commentType: 'text', content: 'removed comment', isDeleted: true },
+          ],
+        },
+      ],
+    });
+    const config = mockConfig();
+
+    const result = await getPRThreadComments(config, 'repo-1', 42);
+
+    expect(result).toEqual(['Looks good', 'Please fix the typo']);
+    const url = mockFn.mock.calls[0]![0] as string;
+    expect(url).toContain('git/repositories/repo-1/pullrequests/42/threads');
+    expect(url).toContain('api-version=7.0');
+  });
+
+  test('returns empty array when there are no threads', async () => {
+    setMockFetch({ value: [] });
+    const config = mockConfig();
+
+    const result = await getPRThreadComments(config, 'repo-1', 42);
+
+    expect(result).toEqual([]);
   });
 });
 

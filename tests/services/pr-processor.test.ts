@@ -21,6 +21,8 @@ function mockConfig(): AppConfig {
     stateDir: '.state',
     dryRun: false,
     assignedToFilter: null,
+    lookbackDays: 7,
+    releaseNoteTag: 'create-releasenote',
   };
 }
 
@@ -159,7 +161,11 @@ describe('processPR', () => {
     expect(deps.updateWorkItemFields).toHaveBeenCalledTimes(1);
     const updateCall = (deps.updateWorkItemFields as ReturnType<typeof mock>).mock.calls[0]!;
     expect(updateCall[1]).toBe(100); // workItemId
-    expect(updateCall[2]).toEqual([{ fieldName: 'Custom.ReleaseNotes', value: 'Fixed login bug' }]);
+    // Custom.Version is preserved alongside the release note to avoid rule-validation errors.
+    expect(updateCall[2]).toEqual([
+      { fieldName: 'Custom.ReleaseNotes', value: 'Fixed login bug' },
+      { fieldName: 'Custom.Version', value: 'No selection made' },
+    ]);
   });
 
   test('PR with work item that already has release notes is skipped', async () => {
