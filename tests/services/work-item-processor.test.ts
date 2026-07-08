@@ -215,11 +215,13 @@ describe('processTaggedWorkItem', () => {
 
     // Wrote note and stripped the tag
     expect(deps.updateWorkItemFields).toHaveBeenCalledTimes(1);
-    const fields = (deps.updateWorkItemFields as ReturnType<typeof mock>).mock.calls[0]![2] as Array<{ fieldName: string; value: string }>;
+    const fields = (deps.updateWorkItemFields as ReturnType<typeof mock>).mock.calls[0]![2] as Array<{ fieldName: string; value: string; op?: string }>;
     const notes = fields.find((f) => f.fieldName === 'Custom.ReleaseNotes');
     const tags = fields.find((f) => f.fieldName === 'System.Tags');
     expect(notes?.value).toBe('<p>Export is now faster.</p>');
     expect(tags?.value).toBe('area-export');
+    // Tags MUST use op 'replace' — 'add' merges and can never remove the tag.
+    expect(tags?.op).toBe('replace');
   });
 
   test('appends to an existing release note', async () => {

@@ -68,7 +68,7 @@ export interface WorkItemProcessorDeps {
   updateWorkItemFields: (
     config: AppConfig,
     workItemId: number,
-    fields: Array<{ fieldName: string; value: string }>,
+    fields: Array<{ fieldName: string; value: string; op?: 'add' | 'replace' }>,
   ) => Promise<WorkItemResponse>;
 
   generateReleaseNote: (
@@ -303,9 +303,11 @@ export async function processTaggedWorkItem(
     const state = String(workItem.fields['System.State'] ?? '');
     log(`  WI #${workItemId}: State="${state}", Version="${version}"`);
 
-    const fields: Array<{ fieldName: string; value: string }> = [
+    // System.Tags MUST use op 'replace': 'add' unions the value with the existing
+    // tags, so it can never remove the release-note tag.
+    const fields: Array<{ fieldName: string; value: string; op?: 'add' | 'replace' }> = [
       { fieldName: config.releaseNotesField, value: finalNote },
-      { fieldName: 'System.Tags', value: newTags },
+      { fieldName: 'System.Tags', value: newTags, op: 'replace' },
       { fieldName: 'Custom.Version', value: versionValue },
     ];
 

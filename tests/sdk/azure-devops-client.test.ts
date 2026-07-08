@@ -9,6 +9,7 @@ import {
   getWorkItem,
   getPRChangedFiles,
   updateWorkItemField,
+  updateWorkItemFields,
   queryWorkItemsByTag,
   getWorkItemComments,
   getPRThreadComments,
@@ -330,6 +331,44 @@ describe('updateWorkItemField', () => {
     }>;
     expect(body).toEqual([
       { op: 'add', path: '/fields/Custom.ReleaseNotes', value: 'New notes' },
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateWorkItemFields — per-field op
+// ---------------------------------------------------------------------------
+
+describe('updateWorkItemFields', () => {
+  test('defaults each field to op "add"', async () => {
+    setMockFetch({ id: 1, fields: {}, rev: 2, url: 'u' });
+    const config = mockConfig();
+
+    await updateWorkItemFields(config, 100, [
+      { fieldName: 'Custom.ReleaseNotes', value: '<p>note</p>' },
+    ]);
+
+    const init = mockFn.mock.calls[0]![1] as RequestInit;
+    const body = JSON.parse(init.body as string) as Array<{ op: string; path: string; value: string }>;
+    expect(body).toEqual([
+      { op: 'add', path: '/fields/Custom.ReleaseNotes', value: '<p>note</p>' },
+    ]);
+  });
+
+  test('honors an explicit op (replace) per field — required to remove tags', async () => {
+    setMockFetch({ id: 1, fields: {}, rev: 2, url: 'u' });
+    const config = mockConfig();
+
+    await updateWorkItemFields(config, 100, [
+      { fieldName: 'Custom.ReleaseNotes', value: '<p>note</p>' },
+      { fieldName: 'System.Tags', value: 'keep', op: 'replace' },
+    ]);
+
+    const init = mockFn.mock.calls[0]![1] as RequestInit;
+    const body = JSON.parse(init.body as string) as Array<{ op: string; path: string; value: string }>;
+    expect(body).toEqual([
+      { op: 'add', path: '/fields/Custom.ReleaseNotes', value: '<p>note</p>' },
+      { op: 'replace', path: '/fields/System.Tags', value: 'keep' },
     ]);
   });
 });
