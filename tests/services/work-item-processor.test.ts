@@ -92,6 +92,7 @@ function makeDeps(overrides: Partial<WorkItemProcessorDeps> = {}): WorkItemProce
     ),
     generateReleaseNote: mock(() => Promise.resolve('<p>Export is now faster.</p>')),
     queryWorkItemsByTag: mock(() => Promise.resolve([])),
+    addWorkItemComment: mock(() => Promise.resolve()),
     ...overrides,
   };
 }
@@ -378,5 +379,119 @@ describe('scanTaggedWorkItems', () => {
 
     expect(result.errors).toBe(1);
     expect(result.processed).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// failure comments
+// ---------------------------------------------------------------------------
+
+describe('failure comments', () => {
+  test('generation failure posts a categorized "generate" comment; tag not removed', async () => {
+    const config = mockConfig();
+    const workItem = mockWorkItem({ relations: [prRelation('repo-1', 42)] });
+    const addComment = mock(() => Promise.resolve());
+    const deps = makeDeps({
+      generateReleaseNote: mock(() => Promise.reject(new Error('SDK failed'))),
+      getWorkItemComments: mock(() => Promise.resolve([] as string[])),
+      addWorkItemComment: addComment,
+    });
+
+    const result = await processTaggedWorkItem(config, workItem, deps);
+
+    expect(result.errors).toBe(1);
+    expect(deps.updateWorkItemFields).toHaveBeenCalledTimes(0);
+    expect(addComment).toHaveBeenCalledTimes(1);
+    const html = (addComment as ReturnType<typeof mock>).mock.calls[0]![2] as string;
+    expect(html).toContain('generate a release note');
+  });
+
+  test('a save failure posts a categorized "save" comment', async () => {
+    const config = mockConfig();
+    const workItem = mockWorkItem({ relations: [prRelation('repo-1', 42)] });
+    const addComment = mock(() => Promise.resolve());
+    const deps = makeDeps({
+      updateWorkItemFields: mock(() => Promise.reject(new Error('403 Forbidden'))),
+      getWorkItemComments: mock(() => Promise.resolve([] as string[])),
+      addWorkItemComment: addComment,
+    });
+
+    const result = await processTaggedWorkItem(config, workItem, deps);
+
+    expect(result.errors).toBe(1);
+    expect(addComment).toHaveBeenCalledTimes(1);
+    const html = (addComment as ReturnType<typeof mock>).mock.calls[0]![2] as string;
+    expect(html).toContain('save it to this work item');
+  });
+
+  test('does not repost when the same-category comment already exists', async () => {
+    const config = mockConfig();
+    const workItem = mockWorkItem({ relations: [prRelation('repo-1', 42)] });
+    const addComment = mock(() => Promise.resolve());
+    const deps = makeDeps({
+      generateReleaseNote: mock(() => Promise.reject(new Error('SDK failed'))),
+      getWorkItemComments: mock(() =>
+        Promise.resolve([
+          "⚠️ Release-note tool couldn't generate a release note here. It will retry automatically on the next poll.",
+        ]),
+      ),
+      addWorkItemComment: addComment,
+    });
+
+    await processTaggedWorkItem(config, workItem, deps);
+
+    expect(addComment).toHaveBeenCalledTimes(0);
+  });
+
+  test('still posts when only a different-category comment exists', async () => {
+    const config = mockConfig();
+    const workItem = mockWorkItem({ relations: [prRelation('repo-1', 42)] });
+    const addComment = mock(() => Promise.resolve());
+    const deps = makeDeps({
+      generateReleaseNote: mock(() => Promise.reject(new Error('SDK failed'))),
+      getWorkItemComments: mock(() =>
+        Promise.resolve([
+          "⚠️ Release-note tool generated a note but couldn't save it to this work item — likely a permissions or state issue.",
+        ]),
+      ),
+      addWorkItemComment: addComment,
+    });
+
+    await processTaggedWorkItem(config, workItem, deps);
+
+    expect(addComment).toHaveBeenCalledTimes(1);
+    const html = (addComment as ReturnType<typeof mock>).mock.calls[0]![2] as string;
+    expect(html).toContain('generate a release note');
+  });
+
+  test('dry-run does not post a failure comment', async () => {
+    const config = mockConfig({ dryRun: true });
+    const workItem = mockWorkItem({ relations: [prRelation('repo-1', 42)] });
+    const addComment = mock(() => Promise.resolve());
+    const deps = makeDeps({
+      generateReleaseNote: mock(() => Promise.reject(new Error('SDK failed'))),
+      addWorkItemComment: addComment,
+    });
+
+    const result = await processTaggedWorkItem(config, workItem, deps);
+
+    expect(result.errors).toBe(1);
+    expect(addComment).toHaveBeenCalledTimes(0);
+  });
+
+  test('a failure reading comments does not post and does not throw', async () => {
+    const config = mockConfig();
+    const workItem = mockWorkItem({ relations: [prRelation('repo-1', 42)] });
+    const addComment = mock(() => Promise.resolve());
+    const deps = makeDeps({
+      generateReleaseNote: mock(() => Promise.reject(new Error('SDK failed'))),
+      getWorkItemComments: mock(() => Promise.reject(new Error('comments unreadable'))),
+      addWorkItemComment: addComment,
+    });
+
+    const result = await processTaggedWorkItem(config, workItem, deps);
+
+    expect(result.errors).toBe(1);
+    expect(addComment).toHaveBeenCalledTimes(0);
   });
 });
