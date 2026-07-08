@@ -13,6 +13,7 @@ import {
   queryWorkItemsByTag,
   getWorkItemComments,
   getPRThreadComments,
+  addWorkItemComment,
 } from '../../src/sdk/azure-devops-client.ts';
 
 // ---------------------------------------------------------------------------
@@ -502,5 +503,29 @@ describe('error handling', () => {
       expect(adoErr.name).toBe('AzureDevOpsError');
       expect(adoErr.message).toContain('404');
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// addWorkItemComment
+// ---------------------------------------------------------------------------
+
+describe('addWorkItemComment', () => {
+  test('POSTs the comment text to the work item comments endpoint', async () => {
+    setMockFetch({ id: 1, text: 'stored' });
+    const config = mockConfig();
+
+    await addWorkItemComment(config, 100, '<b>hello</b>');
+
+    const call = mockFn.mock.calls[0]!;
+    const url = call[0] as string;
+    const init = call[1] as RequestInit;
+
+    expect(url).toContain('wit/workItems/100/comments');
+    expect(url).toContain('api-version=7.0-preview.3');
+    expect(init.method).toBe('POST');
+
+    const body = JSON.parse(init.body as string) as { text: string };
+    expect(body.text).toBe('<b>hello</b>');
   });
 });

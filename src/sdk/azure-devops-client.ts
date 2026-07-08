@@ -207,6 +207,21 @@ export async function getWorkItemComments(
 }
 
 /**
+ * Post a comment to a work item's discussion. ADO renders comment text as HTML.
+ */
+export async function addWorkItemComment(
+  config: AppConfig,
+  workItemId: number,
+  commentHtml: string,
+): Promise<void> {
+  const path = `wit/workItems/${workItemId}/comments?api-version=7.0-preview.3`;
+  await adoFetchWithRetry<unknown>(config, path, {
+    method: 'POST',
+    body: JSON.stringify({ text: commentHtml }),
+  });
+}
+
+/**
  * Fetch human discussion comments across all threads on a pull request.
  * Skips system-generated entries (e.g. auto-complete, status changes) and deleted comments.
  */
