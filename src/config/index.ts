@@ -16,6 +16,7 @@ const envSchema = z.object({
   STATE_DIR: z.string().default(".state"),
   ASSIGNED_TO_FILTER: z.string().optional(),
   LOOKBACK_DAYS: z.coerce.number().default(7),
+  RELEASE_NOTE_TAG: z.string().default("create-releasenote"),
 });
 
 /**
@@ -55,5 +56,6 @@ export function loadConfig(
     dryRun: false,
     assignedToFilter: parsed.ASSIGNED_TO_FILTER ?? null,
     lookbackDays: parsed.LOOKBACK_DAYS,
+    releaseNoteTag: parsed.RELEASE_NOTE_TAG,
   };
 }

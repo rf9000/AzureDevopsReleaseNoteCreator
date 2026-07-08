@@ -58,6 +58,7 @@ describe("loadConfig", () => {
     expect(config.stateDir).toBe(".state");
     expect(config.assignedToFilter).toBeNull();
     expect(config.lookbackDays).toBe(7);
+    expect(config.releaseNoteTag).toBe("create-releasenote");
   });
 
   it("overrides defaults when optional vars are provided", () => {
@@ -70,6 +71,7 @@ describe("loadConfig", () => {
       STATE_DIR: "/tmp/state",
       ASSIGNED_TO_FILTER: "René Frandsen",
       LOOKBACK_DAYS: "14",
+      RELEASE_NOTE_TAG: "needs-note",
     };
 
     const config = loadConfig(env);
@@ -81,6 +83,7 @@ describe("loadConfig", () => {
     expect(config.stateDir).toBe("/tmp/state");
     expect(config.assignedToFilter).toBe("René Frandsen");
     expect(config.lookbackDays).toBe(14);
+    expect(config.releaseNoteTag).toBe("needs-note");
   });
 
   it("splits repo IDs and trims whitespace", () => {

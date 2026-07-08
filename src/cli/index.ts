@@ -3,8 +3,9 @@
 import { loadConfig } from '../config/index.ts';
 import { startWatcher, runPollCycle } from '../services/watcher.ts';
 import { StateStore } from '../state/state-store.ts';
-import { getPullRequest } from '../sdk/azure-devops-client.ts';
+import { getPullRequest, getWorkItem } from '../sdk/azure-devops-client.ts';
 import { processPR } from '../services/pr-processor.ts';
+import { processTaggedWorkItem } from '../services/work-item-processor.ts';
 
 const HELP = `
 Azure DevOps Release Note Creator
@@ -17,6 +18,7 @@ Commands:
   run-once         Run a single poll cycle and exit
   test-pr <id>     Generate release notes for a single PR (dry-run, no writes)
   process-pr <id>  Process a single PR in production mode (writes release notes)
+  process-workitem <id>  Process a single tagged work item (writes; appends note, removes tag)
   reset-state      Clear the processed PR state and exit
   help             Show this help message
 
@@ -34,6 +36,7 @@ Environment variables:
   RELEASE_NOTE_PROMPT_PATH  Path to prompt file (default: .claude/commands/do-CreateReleaseNoteContinia.md)
   STATE_DIR                 State directory (default: .state)
   LOOKBACK_DAYS             Days to look back for completed PRs (default: 7)
+  RELEASE_NOTE_TAG          Work item tag that requests a note (default: create-releasenote)
 `.trim();
 
 const command = process.argv[2];
@@ -89,6 +92,23 @@ switch (command) {
     const repoId = config.repoIds[0]!;
     const pr = await getPullRequest(config, repoId, Number(prIdArg));
     const result = await processPR(config, pr);
+    console.log(`\nDone: ${result.processed} processed, ${result.skipped} skipped, ${result.errors} errors`);
+    break;
+  }
+
+  case 'process-workitem': {
+    const wiIdArg = process.argv[3];
+    if (!wiIdArg || isNaN(Number(wiIdArg))) {
+      console.error('Usage: release-notes process-workitem <work-item-id>');
+      process.exitCode = 1;
+      break;
+    }
+    const config = loadConfig();
+    config.dryRun = dryRun;
+    if (dryRun) console.log('[DRY RUN] No writes will be made to Azure DevOps\n');
+    console.log(`Processing tagged work item #${wiIdArg}\n`);
+    const workItem = await getWorkItem(config, Number(wiIdArg));
+    const result = await processTaggedWorkItem(config, workItem);
     console.log(`\nDone: ${result.processed} processed, ${result.skipped} skipped, ${result.errors} errors`);
     break;
   }

@@ -14,6 +14,7 @@ import type {
 import { StateStore } from '../state/state-store.ts';
 import * as sdk from '../sdk/azure-devops-client.ts';
 import * as proc from './pr-processor.ts';
+import * as wiProc from './work-item-processor.ts';
 
 // ---------------------------------------------------------------------------
 // Dependency injection interface
@@ -30,12 +31,17 @@ export interface WatcherDeps {
     config: AppConfig,
     pr: AzureDevOpsPullRequest,
   ) => Promise<PRProcessResult>;
+
+  scanTaggedWorkItems: (
+    config: AppConfig,
+  ) => Promise<{ processed: number; skipped: number; errors: number }>;
 }
 
 /** Default production dependencies wired to the real modules. */
 const defaultDeps: WatcherDeps = {
   listCompletedPRs: sdk.listCompletedPRs,
   processPR: proc.processPR,
+  scanTaggedWorkItems: wiProc.scanTaggedWorkItems,
 };
 
 // ---------------------------------------------------------------------------
@@ -98,6 +104,19 @@ export async function runPollCycle(
         stateStore.markFailed(pr.pullRequestId);
       }
     }
+  }
+
+  // Tag-driven flow: scan work items tagged for release-note creation. WIQL is
+  // project-wide, so this runs once per cycle (not per repo). Tag removal is the
+  // idempotency mechanism, so there is no per-work-item state to persist.
+  try {
+    const tagResult = await deps.scanTaggedWorkItems(config);
+    totalProcessed += tagResult.processed;
+    totalSkipped += tagResult.skipped;
+    totalErrors += tagResult.errors;
+  } catch (err) {
+    log(`  Tag scan failed: ${err}`);
+    totalErrors++;
   }
 
   // Always advance lastRunAt — failed PRs are tracked explicitly in failedPRIds

@@ -26,6 +26,7 @@ function mockConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     dryRun: false,
     assignedToFilter: null,
     lookbackDays: 7,
+    releaseNoteTag: 'create-releasenote',
     ...overrides,
   };
 }
@@ -52,6 +53,9 @@ function makeDeps(overrides: Partial<WatcherDeps> = {}): WatcherDeps {
     listCompletedPRs: mock(() => Promise.resolve([])),
     processPR: mock(() =>
       Promise.resolve({ prId: 0, processed: 0, skipped: 0, errors: 0 }),
+    ),
+    scanTaggedWorkItems: mock(() =>
+      Promise.resolve({ processed: 0, skipped: 0, errors: 0 }),
     ),
     ...overrides,
   };
@@ -195,6 +199,36 @@ describe('runPollCycle', () => {
     expect(result).toEqual({ processed: 1, skipped: 0, errors: 0 });
     expect(deps.processPR).toHaveBeenCalledTimes(1);
     expect(stateStore.isProcessed(700)).toBe(true);
+  });
+
+  test('runs the tag scan once per cycle and folds its counts into totals', async () => {
+    const config = mockConfig();
+    const deps = makeDeps({
+      listCompletedPRs: mock(() => Promise.resolve([])),
+      scanTaggedWorkItems: mock(() =>
+        Promise.resolve({ processed: 3, skipped: 1, errors: 0 }),
+      ),
+    });
+
+    const result = await runPollCycle(config, stateStore, deps);
+
+    expect(deps.scanTaggedWorkItems).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ processed: 3, skipped: 1, errors: 0 });
+  });
+
+  test('tag scan runs once even with multiple repos', async () => {
+    const config = mockConfig({ repoIds: ['repo-a', 'repo-b'] });
+    const deps = makeDeps({
+      listCompletedPRs: mock(() => Promise.resolve([])),
+      scanTaggedWorkItems: mock(() =>
+        Promise.resolve({ processed: 1, skipped: 0, errors: 0 }),
+      ),
+    });
+
+    await runPollCycle(config, stateStore, deps);
+
+    // WIQL is project-wide, so the scan must run exactly once, not per repo.
+    expect(deps.scanTaggedWorkItems).toHaveBeenCalledTimes(1);
   });
 
   test('multiple repos polls each one', async () => {

@@ -14,6 +14,12 @@ export interface ReleaseNoteContext {
   workItemTitle: string;
   workItemType: string;
   workItemDescription: string;
+  /** Comments on the work item (tag-driven flow). Optional; omitted from the prompt when absent. */
+  workItemComments?: string[];
+  /** Human comments from related pull requests (tag-driven flow). Optional. */
+  prComments?: string[];
+  /** Titles/descriptions of additional related pull requests beyond the primary one. Optional. */
+  additionalPrDescriptions?: string[];
 }
 
 export async function generateReleaseNote(
@@ -184,11 +190,32 @@ export function buildUserPrompt(context: ReleaseNoteContext): string {
     }
   }
 
+  if (context.additionalPrDescriptions && context.additionalPrDescriptions.length > 0) {
+    lines.push('', '## Additional Pull Requests');
+    for (const d of context.additionalPrDescriptions) {
+      lines.push(`- ${d}`);
+    }
+  }
+
+  if (context.prComments && context.prComments.length > 0) {
+    lines.push('', '## Pull Request Comments');
+    for (const c of context.prComments) {
+      lines.push(`- ${c}`);
+    }
+  }
+
   lines.push('', '## Work Item');
   lines.push(`**Type:** ${context.workItemType}`);
   lines.push(`**Title:** ${context.workItemTitle}`);
   if (context.workItemDescription) {
     lines.push(`**Description:** ${context.workItemDescription}`);
+  }
+
+  if (context.workItemComments && context.workItemComments.length > 0) {
+    lines.push('', '## Work Item Comments');
+    for (const c of context.workItemComments) {
+      lines.push(`- ${c}`);
+    }
   }
 
   const isBug = context.workItemType.toLowerCase().includes('bug');

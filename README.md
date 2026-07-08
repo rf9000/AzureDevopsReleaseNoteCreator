@@ -1,14 +1,33 @@
 # Azure DevOps Release Note Creator
 
-Automatically generates release notes for Azure DevOps work items linked to completed pull requests. Uses the Claude Agent SDK to produce Continia-formatted HTML release notes from PR context.
+Automatically generates release notes for Azure DevOps work items. Uses the Claude Agent SDK to produce Continia-formatted HTML release notes from pull-request and work-item context.
+
+There are two ways a note gets created:
 
 ## How it works
+
+### PR-driven flow (automatic)
 
 1. Polls Azure DevOps for completed PRs in configured repositories
 2. Finds linked work items missing the `Custom.ReleaseNotes` field
 3. Gathers PR context (title, description, changed files, work item type)
 4. Calls Claude to generate a release note in Continia HTML format
 5. Writes the release note back to the work item
+
+### Tag-driven flow (on request)
+
+Tag any work item with `create-releasenote` (configurable via `RELEASE_NOTE_TAG`) to explicitly
+request a note — even for work with no PR, or work whose PR was already processed:
+
+1. Each poll cycle also scans for work items carrying the tag (a project-wide WIQL query)
+2. Gathers context from the work item (description + comments) **and** any related PRs
+   (title, description, changed files, discussion comments)
+3. Generates a note; if the work item already has a release note, the new note is **appended**
+4. Removes the `create-releasenote` tag so the item is not reprocessed
+
+The tag flow ignores `ASSIGNED_TO_FILTER` (a tag is an explicit human request). Tag removal is the
+idempotency mechanism — in `--dry-run` the tag is left in place, so a dry run can be repeated safely.
+Images in descriptions/comments are not processed; the flow is text-only.
 
 ## Setup
 
@@ -32,6 +51,7 @@ cp .env.example .env
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `RELEASE_NOTES_FIELD` | `Custom.ReleaseNotes` | Work item field to write to |
+| `RELEASE_NOTE_TAG` | `create-releasenote` | Work item tag that requests a note (tag-driven flow) |
 | `POLL_INTERVAL_MINUTES` | `25` | Polling interval for watch mode |
 | `CLAUDE_MODEL` | `claude-opus-4-6` | Claude model to use |
 | `RELEASE_NOTE_PROMPT_PATH` | `.claude/commands/do-CreateReleaseNoteContinia.md` | Path to the prompt file |
@@ -73,6 +93,17 @@ Fetches a specific PR by ID and generates release notes for its linked work item
 ```bash
 bun run src/cli/index.ts process-pr 43747
 bun run src/cli/index.ts process-pr 43747 --dry-run   # preview without writing
+```
+
+### `process-workitem <id>` — Process a single tagged work item
+
+Fetches a work item by ID, gathers context from it and any related PRs, generates a release note,
+appends it to any existing note, and removes the `create-releasenote` tag. Writes by default;
+`--dry-run` generates and prints without writing (and leaves the tag in place).
+
+```bash
+bun run src/cli/index.ts process-workitem 51234
+bun run src/cli/index.ts process-workitem 51234 --dry-run   # preview without writing
 ```
 
 ### `reset-state` — Clear processed state

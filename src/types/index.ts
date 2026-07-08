@@ -19,6 +19,8 @@ export interface AppConfig {
   assignedToFilter: string | null;
   /** Number of days to look back for completed PRs (default 7). */
   lookbackDays: number;
+  /** Work item tag that requests release-note generation (default 'create-releasenote'). */
+  releaseNoteTag: string;
 }
 
 /** Shape returned by the Azure DevOps Pull Request API. */
@@ -42,12 +44,21 @@ export interface PRWorkItemRef {
   url: string;
 }
 
+/** A relation (link) on a work item, e.g. an ArtifactLink to a pull request. */
+export interface WorkItemRelation {
+  rel: string;
+  url: string;
+  attributes?: { name?: string; [key: string]: unknown };
+}
+
 /** Response shape when fetching a single work item. */
 export interface WorkItemResponse {
   id: number;
   fields: Record<string, unknown>;
   rev: number;
   url: string;
+  /** Present when the work item is fetched with `$expand=all` / `$expand=relations`. */
+  relations?: WorkItemRelation[];
 }
 
 /** A single change entry inside a diff response. */
