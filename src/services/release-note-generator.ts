@@ -1,6 +1,38 @@
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
+import { resolve } from 'path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { AppConfig } from '../types/index.ts';
+
+/**
+ * A line consisting solely of `@<path>` — the same file-reference syntax Claude
+ * Code expands in skill/slash-command files. The prompt file is shared between
+ * the `/do-generate-release-note` skill and this app, so the app has to expand
+ * those references itself when it uses the file as a system prompt.
+ */
+const INCLUDE_LINE = /^@(\S+)\s*$/;
+
+/**
+ * Read the system prompt file and inline every `@path` include line with the
+ * referenced file's content. Paths are resolved relative to `rootDir` (the
+ * project root, matching Claude Code's `@` semantics), not the prompt file.
+ * Throws if a referenced file does not exist — silently sending "@path" to the
+ * model would produce a note written without the style guide.
+ */
+export function loadSystemPrompt(promptPath: string, rootDir: string = process.cwd()): string {
+  const raw = readFileSync(promptPath, 'utf-8');
+  return raw
+    .split('\n')
+    .map((line) => {
+      const match = line.match(INCLUDE_LINE);
+      if (!match) return line;
+      const includePath = resolve(rootDir, match[1]!);
+      if (!existsSync(includePath)) {
+        throw new Error(`Release note prompt "${promptPath}" includes "${match[1]}" but it was not found at ${includePath}`);
+      }
+      return readFileSync(includePath, 'utf-8').replace(/\r?\n$/, '');
+    })
+    .join('\n');
+}
 
 function log(message: string): void {
   const ts = new Date(Date.now() + 3600000).toISOString().replace('T', ' ').slice(0, 19);
@@ -26,8 +58,8 @@ export async function generateReleaseNote(
   config: AppConfig,
   context: ReleaseNoteContext,
 ): Promise<string> {
-  // 1. Read system prompt from config.releaseNotePromptPath
-  const systemPrompt = readFileSync(config.releaseNotePromptPath, 'utf-8');
+  // 1. Read system prompt from config.releaseNotePromptPath, expanding @includes
+  const systemPrompt = loadSystemPrompt(config.releaseNotePromptPath);
 
   // 2. Build user prompt with all context
   const userPrompt = buildUserPrompt(context);

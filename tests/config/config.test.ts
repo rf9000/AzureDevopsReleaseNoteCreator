@@ -54,7 +54,7 @@ describe("loadConfig", () => {
     expect(config.releaseNotesField).toBe("Custom.ReleaseNotes");
     expect(config.pollIntervalMinutes).toBe(25);
     expect(config.claudeModel).toBe("claude-opus-4-6");
-    expect(config.releaseNotePromptPath).toBe(".claude/commands/do-CreateReleaseNoteContinia.md");
+    expect(config.releaseNotePromptPath).toBe(".claude/skills/do-generate-release-note/SKILL.md");
     expect(config.stateDir).toBe(".state");
     expect(config.assignedToFilter).toBeNull();
     expect(config.lookbackDays).toBe(7);

@@ -1,6 +1,70 @@
-import { describe, test, expect } from 'bun:test';
-import { buildUserPrompt, extractHtml } from '../../src/services/release-note-generator.ts';
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { buildUserPrompt, extractHtml, loadSystemPrompt } from '../../src/services/release-note-generator.ts';
 import type { ReleaseNoteContext } from '../../src/services/release-note-generator.ts';
+
+describe('loadSystemPrompt', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'rn-prompt-'));
+    mkdirSync(join(root, '.claude', 'skills', 'rn'), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  test('returns the file content unchanged when there are no includes', () => {
+    writeFileSync(join(root, 'prompt.md'), '# Prompt\n\nJust text.\n');
+    expect(loadSystemPrompt(join(root, 'prompt.md'), root)).toBe('# Prompt\n\nJust text.\n');
+  });
+
+  test('expands @path includes relative to the project root', () => {
+    const skillDir = join(root, '.claude', 'skills', 'rn');
+    writeFileSync(join(skillDir, 'style.md'), '# Style guide\nBold UI.\n');
+    writeFileSync(join(skillDir, 'rules.md'), '# Rules\nFocus.\n');
+    writeFileSync(
+      join(skillDir, 'SKILL.md'),
+      '# Cmd\n\n## Style\n\n@.claude/skills/rn/style.md\n\n## Rules\n\n@.claude/skills/rn/rules.md\n',
+    );
+
+    const prompt = loadSystemPrompt(join(skillDir, 'SKILL.md'), root);
+
+    expect(prompt).toContain('# Style guide\nBold UI.');
+    expect(prompt).toContain('# Rules\nFocus.');
+    expect(prompt).not.toContain('@.claude/');
+    // Order of the surrounding headings is preserved.
+    expect(prompt.indexOf('## Style')).toBeLessThan(prompt.indexOf('# Style guide'));
+    expect(prompt.indexOf('# Style guide')).toBeLessThan(prompt.indexOf('## Rules'));
+    expect(prompt.indexOf('## Rules')).toBeLessThan(prompt.indexOf('# Rules'));
+  });
+
+  test('leaves @-mentions that are not on their own line alone', () => {
+    writeFileSync(join(root, 'prompt.md'), 'Contact @someone or see the @.claude/x.md note inline.\n');
+    expect(loadSystemPrompt(join(root, 'prompt.md'), root)).toBe(
+      'Contact @someone or see the @.claude/x.md note inline.\n',
+    );
+  });
+
+  test('throws a clear error when an included file is missing', () => {
+    writeFileSync(join(root, 'prompt.md'), '@.claude/missing.md\n');
+    expect(() => loadSystemPrompt(join(root, 'prompt.md'), root)).toThrow(/missing\.md/);
+  });
+
+  test('the shipped default prompt expands with no unresolved includes', () => {
+    // Guards the real files: the default RELEASE_NOTE_PROMPT_PATH must resolve
+    // its @includes against the repo root so the app gets the full prompt.
+    const prompt = loadSystemPrompt('.claude/skills/do-generate-release-note/SKILL.md', process.cwd());
+    expect(prompt).not.toMatch(/^@/m);
+    // Style guide content
+    expect(prompt).toContain('Never use "we."');
+    // Generation-rules content
+    expect(prompt).toContain('the note is not a changelog');
+  });
+});
 
 describe('buildUserPrompt', () => {
   const baseContext: ReleaseNoteContext = {

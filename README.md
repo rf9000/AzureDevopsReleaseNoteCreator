@@ -54,7 +54,7 @@ cp .env.example .env
 | `RELEASE_NOTE_TAG` | `create-releasenote` | Work item tag that requests a note (tag-driven flow) |
 | `POLL_INTERVAL_MINUTES` | `25` | Polling interval for watch mode |
 | `CLAUDE_MODEL` | `claude-opus-4-6` | Claude model to use |
-| `RELEASE_NOTE_PROMPT_PATH` | `.claude/commands/do-CreateReleaseNoteContinia.md` | Path to the prompt file |
+| `RELEASE_NOTE_PROMPT_PATH` | `.claude/skills/do-generate-release-note/SKILL.md` | Path to the prompt file (see [Release note format](#release-note-format)) |
 | `STATE_DIR` | `.state` | Directory for processed PR state |
 | `DEBUG` | _(unset)_ | Set to any value to enable verbose SDK message logging (see [Debugging](#debugging)) |
 
@@ -120,10 +120,21 @@ Available on `watch`, `run-once`, and `process-pr`. Generates release notes via 
 
 ## Release note format
 
-Release notes follow the Continia HTML format defined in `.claude/commands/do-CreateReleaseNoteContinia.md`:
+Release notes are header-free flowing-prose HTML (the Description cell of a release-note table row). The
+prompt is a single Claude Code skill folder, `.claude/skills/do-generate-release-note/`, so it can be
+copied to another repo or shared with the technical writers as one unit:
 
-- **Features/User Stories** get Why / What / Impact sections
-- **Bug Fixes** get What / Where-When / Resolution sections
+| File (in the skill folder) | Owner | Contents |
+|----------------------------|-------|----------|
+| `SKILL.md` | this repo | The prompt, invocable as `/do-generate-release-note`. Short task statement that pulls in the two files below via `@path` lines. |
+| `changelog-style-guide.md` | technical writers | The Continia changelog style guide (formatting, voice, terminology, self-check). Authoritative — replace it wholesale when the writers publish a new version. |
+| `generation-rules.md` | this repo | Everything the style guide does not cover: what to write about (primary change, hard-omit list, "Previously, …" shape), product conventions, reference examples, approval flow. If it conflicts with the style guide, the style guide wins. |
+
+Claude Code expands the `@path` lines itself when the skill is run interactively; the app does the same
+in `loadSystemPrompt()` (`src/services/release-note-generator.ts`) when it reads `SKILL.md` as a system
+prompt. `@` paths are resolved from the working directory (Claude Code's convention), so the skill folder
+must stay at `.claude/skills/do-generate-release-note/` in whichever repo it is copied to. A missing
+include is an error.
 
 ## Debugging
 

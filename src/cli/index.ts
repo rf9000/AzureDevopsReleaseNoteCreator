@@ -33,7 +33,7 @@ Environment variables:
   RELEASE_NOTES_FIELD       Custom field name (default: Custom.ReleaseNotes)
   POLL_INTERVAL_MINUTES     Polling interval (default: 25)
   CLAUDE_MODEL              Claude model to use (default: claude-opus-4-6)
-  RELEASE_NOTE_PROMPT_PATH  Path to prompt file (default: .claude/commands/do-CreateReleaseNoteContinia.md)
+  RELEASE_NOTE_PROMPT_PATH  Path to prompt file (default: .claude/skills/do-generate-release-note/SKILL.md)
   STATE_DIR                 State directory (default: .state)
   LOOKBACK_DAYS             Days to look back for completed PRs (default: 7)
   RELEASE_NOTE_TAG          Work item tag that requests a note (default: create-releasenote)

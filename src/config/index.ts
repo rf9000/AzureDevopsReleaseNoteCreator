@@ -12,7 +12,7 @@ const envSchema = z.object({
   RELEASE_NOTES_FIELD: z.string().default("Custom.ReleaseNotes"),
   POLL_INTERVAL_MINUTES: z.coerce.number().default(25),
   CLAUDE_MODEL: z.string().default("claude-opus-4-6"),
-  RELEASE_NOTE_PROMPT_PATH: z.string().default(".claude/commands/do-CreateReleaseNoteContinia.md"),
+  RELEASE_NOTE_PROMPT_PATH: z.string().default(".claude/skills/do-generate-release-note/SKILL.md"),
   STATE_DIR: z.string().default(".state"),
   ASSIGNED_TO_FILTER: z.string().optional(),
   LOOKBACK_DAYS: z.coerce.number().default(7),
