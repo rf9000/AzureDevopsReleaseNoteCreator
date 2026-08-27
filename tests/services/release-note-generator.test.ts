@@ -62,7 +62,7 @@ describe('loadSystemPrompt', () => {
     // Style guide content
     expect(prompt).toContain('Never use "we."');
     // Generation-rules content
-    expect(prompt).toContain('the note is not a changelog');
+    expect(prompt).toContain('## Length budget');
   });
 });
 
@@ -214,6 +214,21 @@ describe('buildUserPrompt', () => {
     expect(feature).not.toContain('Why, What, Impact');
     expect(bug).toContain('flowing-prose');
     expect(feature).toContain('flowing-prose');
+  });
+
+  test('format hint carries the length budget and does not invite a Previously contrast', () => {
+    // Published Continia notes are 1–2 sentences (median 21 words); the hint
+    // must reinforce the skill's budget rather than ask for issue + where/when
+    // + error + resolution, which produced 60–80-word notes.
+    const bug = buildUserPrompt(baseContext);
+    const feature = buildUserPrompt({ ...baseContext, workItemType: 'User Story' });
+    expect(bug).toContain('50 words');
+    expect(feature).toContain('50 words');
+    // The style guide's bug-fix tense split (past problem, present fix) — not the
+    // published changelog's "Fixed an issue where…" opening, which the guide does not sanction.
+    expect(bug).toContain('This has been fixed');
+    expect(bug).not.toContain('Fixed an issue where');
+    expect(feature).not.toMatch(/use "Previously/);
   });
 });
 

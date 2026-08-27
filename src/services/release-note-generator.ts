@@ -254,13 +254,15 @@ export function buildUserPrompt(context: ReleaseNoteContext): string {
   lines.push('', '## Required Format');
   if (isBug) {
     lines.push(
-      'This is a **Bug Fix**. Write header-free flowing-prose HTML: describe the issue and where/when ' +
-        'it occurred (include any error message), then the resolution.',
+      'This is a **Bug Fix**. Write header-free flowing-prose HTML, at most three sentences and 50 words of ' +
+        'prose: the problem and where/when it occurred in the past tense (include the error message only if ' +
+        'its exact text is in the context), then the fix in the present tense ("This has been fixed…").',
     );
   } else {
     lines.push(
-      'This is a **Feature/Enhancement**. Write header-free flowing-prose HTML: explain the new behavior ' +
-        'and its value to the customer (use "Previously, …" to contrast the old behavior where relevant).',
+      'This is a **Feature/Enhancement**. Write header-free flowing-prose HTML, one or two sentences (at ' +
+        'most three, at most 50 words) stating the new user-visible behavior. Do not add a "Previously, …" ' +
+        'contrast unless the old behavior cannot be inferred from the new one.',
     );
   }
 

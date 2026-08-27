@@ -14,9 +14,10 @@ guide wins**.
 
 ## 1. Style guide (authoritative — owned by the technical writers)
 
-Apply every rule in the style guide below, including its self-check. Ignore its trailing
-"Conversion report" section and any `<!-- GAP: … -->` comments — they are notes about the guide itself,
-not rules for the note.
+Apply every rule in the style guide below, including its self-check. The file is dropped in wholesale
+whenever the writers publish a new version and is never edited here; if anything in the generation rules
+(section 2) conflicts with it, the style guide is right. Ignore its trailing "Conversion report" section
+and any `<!-- GAP: … -->` comments — they are notes about the guide itself, not rules for the note.
 
 @.claude/skills/do-generate-release-note/changelog-style-guide.md
 
