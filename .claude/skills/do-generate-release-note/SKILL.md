@@ -1,13 +1,31 @@
 ---
 name: do-generate-release-note
-description: Generate a Continia release note (HTML description cell) from work item and pull-request context, following the technical writers' changelog style guide.
+description: Generate a Continia release note (HTML description cell) from a work item and its change context (pull request, branch or staged diff, or commits), following the technical writers' changelog style guide.
 ---
 
 # Generate Continia Release Note
 
-Write a professional release note for a Continia software update from the provided work item and
-pull-request context (title, description, changed files, comments). Read the referenced code only when
-the supplied context is not enough to understand what changed for the customer.
+Write a professional release note for a Continia software update from the work item and the change
+context. The note does not depend on a pull request existing — any description of *what changed* will do.
+
+## Change context — where it comes from
+
+Use the first source that is available, in this order:
+
+1. **Supplied in the prompt** — pull-request title, description, changed files, and comments (this is what
+   the automated flow sends), or a diff pasted by the user.
+2. **The developer's repository**, when invoked interactively inside the repository that holds the change
+   and nothing is supplied: the staged changes (`git diff --staged`), then the branch's diff against its
+   base (`git diff <base>...HEAD`), then recent commits on the branch. Treat this diff as the change
+   context, not as "reading code"; do not roam the repository beyond it.
+3. **The work item alone**, when neither applies (e.g. the automated flow processing a work item with no
+   linked pull request) — write from its title, description, and comments; do not search the file system
+   for the change.
+
+Read code outside the diff only when the context above is not enough to understand what changed for the
+customer. If no work item is supplied and the type (bug fix or feature) cannot be inferred from the branch
+name, commit messages, or diff, ask for the work item before writing — the two shapes differ too much to
+guess.
 
 Two documents in this skill folder govern the note. Follow both; if they ever disagree, **the style
 guide wins**.

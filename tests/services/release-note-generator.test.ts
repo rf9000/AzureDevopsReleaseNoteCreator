@@ -205,6 +205,21 @@ describe('buildUserPrompt', () => {
     expect(prompt).toContain('## Work Item Comments');
   });
 
+  test('omits the Pull Request section entirely when no PR is linked', () => {
+    const prompt = buildUserPrompt({
+      prTitle: '',
+      prDescription: '',
+      changedFiles: [],
+      workItemTitle: 'Manual note request',
+      workItemType: 'User Story',
+      workItemDescription: 'Please document this',
+    });
+    expect(prompt).not.toContain('## Pull Request');
+    expect(prompt).toContain('No pull request is linked');
+    // The only **Title:** line must be the work item's, not an empty PR one
+    expect(prompt.match(/\*\*Title:\*\*/g)).toHaveLength(1);
+  });
+
   test('format hint does not request <h3>-style section headers', () => {
     const bug = buildUserPrompt(baseContext);
     const feature = buildUserPrompt({ ...baseContext, workItemType: 'User Story' });

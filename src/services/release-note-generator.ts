@@ -201,13 +201,20 @@ function pickHtml(text: string): string | undefined {
 }
 
 export function buildUserPrompt(context: ReleaseNoteContext): string {
-  const lines: string[] = [
-    `## Pull Request`,
-    `**Title:** ${context.prTitle}`,
-  ];
+  const lines: string[] = [];
 
-  if (context.prDescription) {
-    lines.push(`**Description:** ${context.prDescription}`);
+  // The tag-driven flow can run for a work item with no linked pull request;
+  // say so instead of emitting an empty "## Pull Request" header.
+  if (context.prTitle) {
+    lines.push(`## Pull Request`, `**Title:** ${context.prTitle}`);
+    if (context.prDescription) {
+      lines.push(`**Description:** ${context.prDescription}`);
+    }
+  } else {
+    lines.push(
+      '## Change',
+      'No pull request is linked; the change is described only by the work item below. Do not search the file system for it.',
+    );
   }
 
   if (context.changedFiles.length > 0) {

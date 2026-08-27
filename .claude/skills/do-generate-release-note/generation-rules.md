@@ -1,7 +1,8 @@
 # Release Note Generation Rules
 
 These rules cover what the technical writers' style guide (`changelog-style-guide.md`, beside this file)
-does **not**: how to decide *what* goes into the note from PR / work-item context, how long it should be,
+does **not**: how to decide *what* goes into the note from the change and work-item context (pull request,
+diff, or work item alone), how long it should be,
 product-specific conventions that the style guide leaves implicit, reference examples, and the approval
 flow. Where these rules and the style guide disagree, **the style guide wins** — this file only adds to it.
 
@@ -64,9 +65,11 @@ a bug-fix note to contain fits in two sentences plus the error list:
 The published changelog often opens bug fixes with "Fixed an issue where …". Do **not** copy that: it is a
 corpus habit, not a style-guide pattern, and as of the current guide it puts the fix in the wrong tense.
 
-**Error messages.** Only quote an error message whose **exact text** appears in the supplied work item / PR
-context (or in code you read). Never paraphrase, translate, or reconstruct one — a wrong message is worse
-than none, because partners match on it. When no exact text is available, write the bug fix without the list.
+**Error messages.** Only quote an error message whose **exact text** appears in the supplied context —
+work item, pull request, diff — or in code you read. Never paraphrase, translate, or reconstruct one — a
+wrong message is worse than none, because partners match on it. When no exact text is available, write the
+bug fix without the list. A message that the change *introduces* (a new label in the diff) is post-fix
+behavior, not the error that occurred; it never goes in the "the following error occurred" list.
 
 ## Product conventions not spelled out in the style guide
 
