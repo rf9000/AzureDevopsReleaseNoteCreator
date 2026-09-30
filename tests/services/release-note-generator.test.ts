@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { buildUserPrompt, extractHtml, loadSystemPrompt } from '../../src/services/release-note-generator.ts';
+import { buildUserPrompt, extractHtml, loadSystemPrompt, NO_RELEASE_NOTE_MARKER } from '../../src/services/release-note-generator.ts';
 import type { ReleaseNoteContext } from '../../src/services/release-note-generator.ts';
 
 describe('loadSystemPrompt', () => {
@@ -274,6 +274,26 @@ describe('extractHtml', () => {
     const result = 'Does this release note look correct?';
     const earlier = ['<p>The login timeout has been increased to 30 seconds.</p>'];
     expect(extractHtml(result, earlier)).toBe(earlier[0]!);
+  });
+
+  test('returns the no-note marker when the result is the NO_RELEASE_NOTE sentinel', () => {
+    const result = 'NO_RELEASE_NOTE: Only test code changed.';
+    expect(extractHtml(result, [])).toBe(NO_RELEASE_NOTE_MARKER);
+  });
+
+  test('prefers the sentinel over HTML-looking text in the same result', () => {
+    const result = 'The diff only touches a test codeunit, so a <p> note would be wrong.\nNO_RELEASE_NOTE: Test-only change.';
+    expect(extractHtml(result, [])).toBe(NO_RELEASE_NOTE_MARKER);
+  });
+
+  test('finds the sentinel in an earlier assistant message', () => {
+    expect(extractHtml('Done.', ['NO_RELEASE_NOTE: Internal refactor.'])).toBe(NO_RELEASE_NOTE_MARKER);
+  });
+
+  test('ignores the sentinel name mentioned mid-sentence', () => {
+    expect(() => extractHtml('I could output NO_RELEASE_NOTE here but will not.', [])).toThrow(
+      /output contains no HTML tags/,
+    );
   });
 
   test('throws when no HTML is present anywhere', () => {

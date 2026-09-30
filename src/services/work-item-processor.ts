@@ -363,7 +363,11 @@ export async function processTaggedWorkItem(
 
     // 4. Compute appended note + tag removal, preserving Custom.Version.
     const existingNote = String(workItem.fields[config.releaseNotesField] ?? '');
-    const finalNote = appendNote(existingNote, note);
+    // Appending the "internal change only" marker after a real note would be noise.
+    const finalNote =
+      note === gen.NO_RELEASE_NOTE_MARKER && existingNote.trim() !== ''
+        ? existingNote
+        : appendNote(existingNote, note);
     const newTags = removeTag(
       String(workItem.fields['System.Tags'] ?? ''),
       config.releaseNoteTag,

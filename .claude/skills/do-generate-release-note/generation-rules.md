@@ -40,6 +40,10 @@ notes are **one sentence**, most of the rest are **two**, and the median note is
   itself a partner-facing API change, in which case that is the change* ("Partner extensions can now …");
   internal refactors, test changes, telemetry, and code-quality work. If in doubt whether a change is
   user-facing, leave it out.
+- **Nothing user-facing at all → no note.** When every change falls under the list above (for example, a
+  work item that only fixes tests), do not write a note and do not explain in prose. Output exactly one
+  line, `NO_RELEASE_NOTE: <one-sentence reason>`, and skip the approval step. The automated flow writes
+  "No release note – internal change only" to the work item when it sees this line.
 - **"Previously, …" is rare (2 of 473 published notes).** Use it only when the old behavior cannot be
   inferred from the new one. Do not add it as a matter of course.
 

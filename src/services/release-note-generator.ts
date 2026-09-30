@@ -160,6 +160,11 @@ export async function generateReleaseNote(
  * messages that contain actual HTML.
  */
 export function extractHtml(result: string, assistantTexts: string[]): string {
+  // The model decided there is nothing user-facing to write about (e.g. a
+  // test-only change). Honor that before looking for HTML, so its reasoning
+  // prose is never mistaken for a note.
+  if (pickNoNoteReason(result) !== undefined) return noNote(result);
+
   // Best case: the final result itself contains the HTML
   const htmlFromResult = pickHtml(result);
   if (htmlFromResult) return htmlFromResult;
@@ -170,10 +175,35 @@ export function extractHtml(result: string, assistantTexts: string[]): string {
     if (html) return html;
   }
 
+  // The sentinel may sit in an earlier turn, followed by a conversational summary
+  for (let i = assistantTexts.length - 1; i >= 0; i--) {
+    if (pickNoNoteReason(assistantTexts[i]!) !== undefined) return noNote(assistantTexts[i]!);
+  }
+
   // No valid HTML found — refuse to return garbage (e.g. auth errors, API
   // error messages) that would be written to work items as release notes.
   const preview = result.slice(0, 300).replace(/\n/g, ' ');
   throw new Error(`Release note validation failed — output contains no HTML tags. Result preview: ${preview}`);
+}
+
+/**
+ * Field value written when the change has no user-facing effect. Writing a
+ * value (rather than leaving the field empty) stops the PR flow from
+ * regenerating for this work item on a later poll.
+ */
+export const NO_RELEASE_NOTE_MARKER = 'No release note – internal change only';
+
+/** Sentinel line the prompt asks the model to emit when there is nothing to write. */
+const NO_NOTE_SENTINEL = /^\s*NO_RELEASE_NOTE:?[ \t]*(.*)$/m;
+
+function pickNoNoteReason(text: string): string | undefined {
+  const match = text.match(NO_NOTE_SENTINEL);
+  return match ? match[1]!.trim() : undefined;
+}
+
+function noNote(text: string): string {
+  log(`    No user-facing change — ${pickNoNoteReason(text) || 'no reason given'}`);
+  return NO_RELEASE_NOTE_MARKER;
 }
 
 /**
@@ -272,6 +302,13 @@ export function buildUserPrompt(context: ReleaseNoteContext): string {
         'contrast unless the old behavior cannot be inferred from the new one.',
     );
   }
+
+  lines.push(
+    '',
+    'If nothing in this change is user-facing (only tests, internal refactors, telemetry, or other items ' +
+      'the generation rules say never to mention), write no note. Output exactly one line instead: ' +
+      '`NO_RELEASE_NOTE: <one-sentence reason>`.',
+  );
 
   return lines.join('\n');
 }

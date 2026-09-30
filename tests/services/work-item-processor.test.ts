@@ -15,6 +15,7 @@ import {
   FAILURE_SIGNATURE,
 } from '../../src/services/work-item-processor.ts';
 import type { WorkItemProcessorDeps } from '../../src/services/work-item-processor.ts';
+import { NO_RELEASE_NOTE_MARKER } from '../../src/services/release-note-generator.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -248,6 +249,29 @@ describe('processTaggedWorkItem', () => {
     const fields = (deps.updateWorkItemFields as ReturnType<typeof mock>).mock.calls[0]![2] as Array<{ fieldName: string; value: string }>;
     const notes = fields.find((f) => f.fieldName === 'Custom.ReleaseNotes');
     expect(notes?.value).toBe(`<p>Existing note.</p>${RELEASE_NOTE_SEPARATOR}<p>New note.</p>`);
+  });
+
+  test('keeps an existing note instead of appending the no-note marker', async () => {
+    const config = mockConfig();
+    const workItem = mockWorkItem({
+      fields: {
+        'System.Title': 'Fix test',
+        'System.WorkItemType': 'Bug',
+        'System.Tags': 'create-releasenote',
+        'System.State': 'Active',
+        'Custom.ReleaseNotes': '<p>Existing note.</p>',
+      },
+      relations: [prRelation('repo-1', 42)],
+    });
+    const deps = makeDeps({
+      generateReleaseNote: mock(() => Promise.resolve(NO_RELEASE_NOTE_MARKER)),
+    });
+
+    await processTaggedWorkItem(config, workItem, deps);
+
+    const fields = (deps.updateWorkItemFields as ReturnType<typeof mock>).mock.calls[0]![2] as Array<{ fieldName: string; value: string; op?: string }>;
+    expect(fields.find((f) => f.fieldName === 'Custom.ReleaseNotes')?.value).toBe('<p>Existing note.</p>');
+    expect(fields.find((f) => f.fieldName === 'System.Tags')?.value).toBe('');
   });
 
   test('generates from the work item alone when there is no related PR', async () => {
