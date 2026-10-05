@@ -17,6 +17,7 @@ import type { ReleaseNoteContext } from './release-note-generator.ts';
 
 import * as sdk from '../sdk/azure-devops-client.ts';
 import * as gen from './release-note-generator.ts';
+import { solutionFromAreaPath } from './solution.ts';
 
 // ---------------------------------------------------------------------------
 // Dependency injection interface
@@ -209,6 +210,12 @@ export async function processPR(
       } else {
         await deps.updateWorkItemFields(config, workItemId, fields);
         log(`  WI #${workItemId}: Release note written`);
+      }
+      if (releaseNote !== gen.NO_RELEASE_NOTE_MARKER) {
+        (result.written ??= []).push({
+          workItemId,
+          solution: solutionFromAreaPath(String(workItem.fields['System.AreaPath'] ?? '')),
+        });
       }
       result.processed++;
     } catch (err) {

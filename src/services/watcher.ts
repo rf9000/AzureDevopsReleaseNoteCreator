@@ -10,6 +10,7 @@ import type {
   AppConfig,
   AzureDevOpsPullRequest,
   PRProcessResult,
+  WrittenNote,
 } from '../types/index.ts';
 import { StateStore } from '../state/state-store.ts';
 import * as sdk from '../sdk/azure-devops-client.ts';
@@ -34,7 +35,7 @@ export interface WatcherDeps {
 
   scanTaggedWorkItems: (
     config: AppConfig,
-  ) => Promise<{ processed: number; skipped: number; errors: number }>;
+  ) => Promise<{ processed: number; skipped: number; errors: number; written?: WrittenNote[] }>;
 }
 
 /** Default production dependencies wired to the real modules. */
@@ -92,6 +93,7 @@ export async function runPollCycle(
         totalProcessed += result.processed;
         totalSkipped += result.skipped;
         totalErrors += result.errors;
+        for (const n of result.written ?? []) stateStore.markWritten(n.workItemId, new Date(), n.solution);
 
         if (result.errors === 0) {
           stateStore.markProcessed(pr.pullRequestId);
@@ -114,6 +116,7 @@ export async function runPollCycle(
     totalProcessed += tagResult.processed;
     totalSkipped += tagResult.skipped;
     totalErrors += tagResult.errors;
+    for (const n of tagResult.written ?? []) stateStore.markWritten(n.workItemId, new Date(), n.solution);
   } catch (err) {
     log(`  Tag scan failed: ${err}`);
     totalErrors++;

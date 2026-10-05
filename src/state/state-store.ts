@@ -77,6 +77,12 @@ export class StateStore {
     }
   }
 
+  /** Record a written release note; a work item written again keeps the latest time and solution. */
+  markWritten(workItemId: number, at: Date, solution: string | null): void {
+    (this.state.writtenAt ??= {})[workItemId] = at.toISOString();
+    if (solution) (this.state.writtenProduct ??= {})[workItemId] = solution;
+  }
+
   markFailed(prId: number): void {
     this.failedSet.add(prId);
   }

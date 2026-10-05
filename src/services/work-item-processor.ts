@@ -15,11 +15,13 @@ import type {
   AzureDevOpsPullRequest,
   WorkItemRelation,
   WorkItemResponse,
+  WrittenNote,
 } from '../types/index.ts';
 import type { ReleaseNoteContext } from './release-note-generator.ts';
 
 import * as sdk from '../sdk/azure-devops-client.ts';
 import * as gen from './release-note-generator.ts';
+import { solutionFromAreaPath } from './solution.ts';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -110,6 +112,7 @@ export interface WorkItemProcessResult {
   processed: number;
   skipped: number;
   errors: number;
+  written?: WrittenNote[];
 }
 
 // ---------------------------------------------------------------------------
@@ -405,6 +408,9 @@ export async function processTaggedWorkItem(
       log(`  WI #${workItemId}: Release note appended, tag removed`);
     }
 
+    if (note !== gen.NO_RELEASE_NOTE_MARKER) {
+      result.written = [{ workItemId, solution: solutionFromAreaPath(String(workItem.fields['System.AreaPath'] ?? '')) }];
+    }
     result.processed++;
   } catch (err) {
     log(`  WI #${workItemId}: Error — ${err}`);
@@ -424,10 +430,11 @@ export async function processTaggedWorkItem(
 export async function scanTaggedWorkItems(
   config: AppConfig,
   deps: WorkItemProcessorDeps = defaultDeps,
-): Promise<{ processed: number; skipped: number; errors: number }> {
+): Promise<{ processed: number; skipped: number; errors: number; written: WrittenNote[] }> {
   let processed = 0;
   let skipped = 0;
   let errors = 0;
+  const written: WrittenNote[] = [];
 
   const ids = await deps.queryWorkItemsByTag(config, config.releaseNoteTag);
   log(`Tag scan: ${ids.length} work item(s) tagged "${config.releaseNoteTag}"`);
@@ -439,11 +446,12 @@ export async function scanTaggedWorkItems(
       processed += result.processed;
       skipped += result.skipped;
       errors += result.errors;
+      written.push(...(result.written ?? []));
     } catch (err) {
       log(`  WI #${id}: Fatal error — ${err}`);
       errors++;
     }
   }
 
-  return { processed, skipped, errors };
+  return { processed, skipped, errors, written };
 }

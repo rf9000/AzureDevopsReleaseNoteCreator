@@ -117,4 +117,16 @@ describe('StateStore', () => {
     store.markProcessed(3);
     expect(store.processedCount).toBe(3);
   });
+
+  it('markWritten records the latest time and solution per work item', () => {
+    const dir = makeTmpDir();
+    const store = new StateStore(dir);
+    store.markWritten(7, new Date('2026-10-01T08:00:00Z'), 'Continia Banking');
+    store.markWritten(7, new Date('2026-10-03T09:00:00Z'), null);
+    store.save();
+
+    const raw = JSON.parse(require('fs').readFileSync(join(dir, 'processed-prs.json'), 'utf-8'));
+    expect(raw.writtenAt).toEqual({ '7': '2026-10-03T09:00:00.000Z' });
+    expect(raw.writtenProduct).toEqual({ '7': 'Continia Banking' });
+  });
 });

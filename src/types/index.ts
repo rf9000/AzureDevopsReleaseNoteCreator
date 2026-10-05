@@ -77,6 +77,17 @@ export interface ProcessedState {
   processedPRIds: number[];
   failedPRIds: number[];
   lastRunAt: string;
+  /** When each work item last got a release note written (ISO), by work item id. Read by the monitor dashboard. */
+  writtenAt?: Record<string, string>;
+  /** Solution of each work item with a written release note, by work item id. Read by the monitor dashboard. */
+  writtenProduct?: Record<string, string>;
+}
+
+/** A work item that got a real release note (not the internal-only marker). */
+export interface WrittenNote {
+  workItemId: number;
+  /** Solution from the work item's area path, e.g. "Continia Banking". */
+  solution: string | null;
 }
 
 /** Result summary after processing a single pull request. */
@@ -85,4 +96,5 @@ export interface PRProcessResult {
   processed: number;
   skipped: number;
   errors: number;
+  written?: WrittenNote[];
 }

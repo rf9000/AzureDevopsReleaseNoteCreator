@@ -137,7 +137,7 @@ describe('processPR', () => {
 
     const result = await processPR(config, pr, deps);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       prId: 42,
       processed: 1,
       skipped: 0,
@@ -306,7 +306,7 @@ describe('processPR', () => {
 
     const result = await processPR(config, pr, deps);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       prId: 42,
       processed: 1,
       skipped: 1,
@@ -349,7 +349,7 @@ describe('processPR', () => {
 
     const result = await processPR(config, pr, deps);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       prId: 42,
       processed: 1,
       skipped: 0,
@@ -392,7 +392,7 @@ describe('processPR', () => {
 
     const result = await processPR(config, pr, deps);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       prId: 42,
       processed: 1,
       skipped: 0,
@@ -451,7 +451,7 @@ describe('processPR', () => {
 
     const result = await processPR(config, pr, deps);
 
-    expect(result).toEqual({ prId: 42, processed: 1, skipped: 0, errors: 0 });
+    expect(result).toMatchObject({ prId: 42, processed: 1, skipped: 0, errors: 0 });
     expect(deps.generateReleaseNote).toHaveBeenCalledTimes(1);
   });
 
@@ -477,7 +477,7 @@ describe('processPR', () => {
 
     const result = await processPR(config, pr, deps);
 
-    expect(result).toEqual({ prId: 42, processed: 1, skipped: 0, errors: 0 });
+    expect(result).toMatchObject({ prId: 42, processed: 1, skipped: 0, errors: 0 });
     expect(deps.generateReleaseNote).toHaveBeenCalledTimes(1);
   });
 
@@ -505,7 +505,7 @@ describe('processPR', () => {
 
     const result = await processPR(config, pr, deps);
 
-    expect(result).toEqual({ prId: 42, processed: 1, skipped: 0, errors: 0 });
+    expect(result).toMatchObject({ prId: 42, processed: 1, skipped: 0, errors: 0 });
     expect(deps.generateReleaseNote).toHaveBeenCalledTimes(1);
   });
 
@@ -560,7 +560,7 @@ describe('processPR', () => {
 
     const result = await processPR(config, pr, deps);
 
-    expect(result).toEqual({ prId: 42, processed: 1, skipped: 0, errors: 0 });
+    expect(result).toMatchObject({ prId: 42, processed: 1, skipped: 0, errors: 0 });
     expect(deps.generateReleaseNote).toHaveBeenCalledTimes(1);
   });
 
@@ -588,7 +588,7 @@ describe('processPR', () => {
 
     const result = await processPR(config, pr, deps);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       prId: 42,
       processed: 1,
       skipped: 0,

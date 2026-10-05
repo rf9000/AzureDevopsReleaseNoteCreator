@@ -209,7 +209,7 @@ describe('processTaggedWorkItem', () => {
 
     const result = await processTaggedWorkItem(config, workItem, deps);
 
-    expect(result).toEqual({ workItemId: 100, processed: 1, skipped: 0, errors: 0 });
+    expect(result).toMatchObject({ workItemId: 100, processed: 1, skipped: 0, errors: 0 });
 
     // Context passed to generator included PR + comments
     const genCtx = (deps.generateReleaseNote as ReturnType<typeof mock>).mock.calls[0]![1];
@@ -289,6 +289,29 @@ describe('processTaggedWorkItem', () => {
     const genCtx = (deps.generateReleaseNote as ReturnType<typeof mock>).mock.calls[0]![1];
     expect(genCtx.prTitle).toBe('');
     expect(genCtx.workItemTitle).toBe('Improve export');
+  });
+
+  test('reports the written note with the solution from the area path', async () => {
+    const config = mockConfig();
+    const workItem = mockWorkItem({
+      fields: { 'System.Title': 'X', 'System.AreaPath': 'Continia Software\\Continia Banking\\Connectivity' },
+    });
+    const deps = makeDeps({ generateReleaseNote: mock(() => Promise.resolve('<p>Note.</p>')) });
+
+    const result = await processTaggedWorkItem(config, workItem, deps);
+
+    expect(result.written).toEqual([{ workItemId: 100, solution: 'Continia Banking' }]);
+  });
+
+  test('the internal-only marker is not reported as a written note', async () => {
+    const config = mockConfig();
+    const workItem = mockWorkItem();
+    const deps = makeDeps({ generateReleaseNote: mock(() => Promise.resolve(NO_RELEASE_NOTE_MARKER)) });
+
+    const result = await processTaggedWorkItem(config, workItem, deps);
+
+    expect(result.processed).toBe(1);
+    expect(result.written).toBeUndefined();
   });
 
   test('dry-run generates but does not write and leaves the tag', async () => {
@@ -371,7 +394,7 @@ describe('scanTaggedWorkItems', () => {
 
     const result = await scanTaggedWorkItems(config, deps);
 
-    expect(result).toEqual({ processed: 2, skipped: 0, errors: 0 });
+    expect(result).toMatchObject({ processed: 2, skipped: 0, errors: 0 });
     expect(deps.queryWorkItemsByTag).toHaveBeenCalledTimes(1);
     expect((deps.queryWorkItemsByTag as ReturnType<typeof mock>).mock.calls[0]![1]).toBe('create-releasenote');
     expect(deps.getWorkItem).toHaveBeenCalledTimes(2);
@@ -385,7 +408,7 @@ describe('scanTaggedWorkItems', () => {
 
     const result = await scanTaggedWorkItems(config, deps);
 
-    expect(result).toEqual({ processed: 0, skipped: 0, errors: 0 });
+    expect(result).toMatchObject({ processed: 0, skipped: 0, errors: 0 });
     expect(deps.getWorkItem).toHaveBeenCalledTimes(0);
   });
 

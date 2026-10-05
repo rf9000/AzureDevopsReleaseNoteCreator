@@ -267,4 +267,23 @@ describe('runPollCycle', () => {
     expect(stateStore.isProcessed(501)).toBe(true);
     expect(stateStore.isProcessed(502)).toBe(true);
   });
+
+  test('records written notes from both the PR flow and the tag scan', async () => {
+    const config = mockConfig();
+    const deps = makeDeps({
+      listCompletedPRs: mock(() => Promise.resolve([mockPR({ pullRequestId: 101 })])),
+      processPR: mock(() =>
+        Promise.resolve({ prId: 101, processed: 1, skipped: 0, errors: 0, written: [{ workItemId: 5, solution: 'Continia Banking' }] }),
+      ),
+      scanTaggedWorkItems: mock(() =>
+        Promise.resolve({ processed: 1, skipped: 0, errors: 0, written: [{ workItemId: 6, solution: null }] }),
+      ),
+    });
+
+    await runPollCycle(config, stateStore, deps);
+
+    const raw = JSON.parse(require('fs').readFileSync(join(tmpDir, 'processed-prs.json'), 'utf-8'));
+    expect(Object.keys(raw.writtenAt).sort()).toEqual(['5', '6']);
+    expect(raw.writtenProduct).toEqual({ '5': 'Continia Banking' });
+  });
 });
