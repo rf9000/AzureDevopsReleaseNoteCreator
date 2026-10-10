@@ -9,6 +9,13 @@ RUN apt-get update && apt-get install -y git curl bash && rm -rf /var/lib/apt/li
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
+# Always ship the newest Claude Agent SDK; bun.lock only sets the floor. ADD of the
+# registry's "latest" manifest invalidates the layer cache exactly when a new
+# version is published, so a plain `docker compose build` picks it up.
+ADD https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/latest /tmp/claude-agent-sdk-latest.json
+RUN bun update @anthropic-ai/claude-agent-sdk --latest && \
+    grep '"version"' node_modules/@anthropic-ai/claude-agent-sdk/package.json
+
 COPY . .
 
 # Claude Code Agent SDK uses --dangerously-skip-permissions which is blocked for root
