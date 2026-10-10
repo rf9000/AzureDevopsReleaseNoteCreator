@@ -18,9 +18,11 @@ import type {
   WrittenNote,
 } from '../types/index.ts';
 import type { ReleaseNoteContext } from './release-note-generator.ts';
+import type { PRCodeChanges } from './code-diff.ts';
 
 import * as sdk from '../sdk/azure-devops-client.ts';
 import * as gen from './release-note-generator.ts';
+import * as codeDiff from './code-diff.ts';
 import { solutionFromAreaPath } from './solution.ts';
 
 // ---------------------------------------------------------------------------
@@ -54,12 +56,13 @@ export interface WorkItemProcessorDeps {
     prId: number,
   ) => Promise<AzureDevOpsPullRequest>;
 
-  getPRChangedFiles: (
+  getPRCodeChanges: (
     config: AppConfig,
     repoId: string,
     baseCommit: string,
     targetCommit: string,
-  ) => Promise<string[]>;
+    maxChars?: number,
+  ) => Promise<PRCodeChanges>;
 
   getPRThreadComments: (
     config: AppConfig,
@@ -95,7 +98,7 @@ const defaultDeps: WorkItemProcessorDeps = {
   getWorkItem: sdk.getWorkItem,
   getWorkItemComments: sdk.getWorkItemComments,
   getPullRequest: sdk.getPullRequest,
-  getPRChangedFiles: sdk.getPRChangedFiles,
+  getPRCodeChanges: codeDiff.getPRCodeChanges,
   getPRThreadComments: sdk.getPRThreadComments,
   updateWorkItemFields: sdk.updateWorkItemFields,
   addWorkItemComment: sdk.addWorkItemComment,
@@ -258,12 +261,16 @@ async function gatherPRContext(
   prTitle: string;
   prDescription: string;
   changedFiles: string[];
+  codeDiff: string;
   prComments: string[];
   additionalPrDescriptions: string[];
 }> {
   let prTitle = '';
   let prDescription = '';
   const changedFiles: string[] = [];
+  const diffs: string[] = [];
+  // All linked PRs share one diff budget.
+  let diffBudget = codeDiff.MAX_DIFF_CHARS;
   const prComments: string[] = [];
   const additionalPrDescriptions: string[] = [];
 
@@ -281,15 +288,20 @@ async function gatherPRContext(
       }
 
       try {
-        const files = await deps.getPRChangedFiles(
+        const changes = await deps.getPRCodeChanges(
           config,
           ref.repoId,
           pr.lastMergeTargetCommit.commitId,
           pr.lastMergeSourceCommit.commitId,
+          diffBudget,
         );
-        changedFiles.push(...files);
+        changedFiles.push(...changes.files);
+        if (changes.diff) {
+          diffs.push(changes.diff);
+          diffBudget -= changes.diff.length;
+        }
       } catch (err) {
-        log(`    PR #${ref.prId}: Warning — could not fetch changed files: ${err}`);
+        log(`    PR #${ref.prId}: Warning — could not fetch code changes: ${err}`);
       }
 
       try {
@@ -303,7 +315,7 @@ async function gatherPRContext(
     }
   }
 
-  return { prTitle, prDescription, changedFiles, prComments, additionalPrDescriptions };
+  return { prTitle, prDescription, changedFiles, codeDiff: diffs.join('\n'), prComments, additionalPrDescriptions };
 }
 
 // ---------------------------------------------------------------------------
@@ -347,6 +359,7 @@ export async function processTaggedWorkItem(
       prTitle: prContext.prTitle,
       prDescription: prContext.prDescription,
       changedFiles: prContext.changedFiles,
+      codeDiff: prContext.codeDiff,
       workItemTitle,
       workItemType: String(workItem.fields['System.WorkItemType'] ?? ''),
       workItemDescription: String(workItem.fields['System.Description'] ?? ''),

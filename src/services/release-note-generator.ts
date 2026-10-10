@@ -43,6 +43,8 @@ export interface ReleaseNoteContext {
   prTitle: string;
   prDescription: string;
   changedFiles: string[];
+  /** Unified diff of the changed files (see code-diff.ts). Optional; omitted from the prompt when empty. */
+  codeDiff?: string;
   workItemTitle: string;
   workItemType: string;
   workItemDescription: string;
@@ -257,6 +259,19 @@ export function buildUserPrompt(context: ReleaseNoteContext): string {
     if (context.changedFiles.length > 50) {
       lines.push(`- ...and ${context.changedFiles.length - 50} more files`);
     }
+  }
+
+  if (context.codeDiff) {
+    // A tag rather than a ``` fence: the diff itself may contain fences (e.g. Markdown files).
+    lines.push(
+      '',
+      '## Code Changes',
+      'Unified diff of the change, from the merge base to the pull request source. Where it disagrees with ' +
+        'a pull-request or work-item description, the code is right.',
+      '<diff>',
+      context.codeDiff,
+      '</diff>',
+    );
   }
 
   if (context.additionalPrDescriptions && context.additionalPrDescriptions.length > 0) {

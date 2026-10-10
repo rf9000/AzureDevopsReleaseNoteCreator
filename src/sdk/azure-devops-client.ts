@@ -8,6 +8,7 @@ import type {
   PRWorkItemRef,
   WorkItemResponse,
   DiffResponse,
+  GitItemResponse,
 } from '../types/index.ts';
 
 /** Custom error for Azure DevOps API failures. */
@@ -156,16 +157,34 @@ export async function getWorkItem(
   return adoFetchWithRetry<WorkItemResponse>(config, path);
 }
 
-/** Get the list of changed file paths between two commits. */
-export async function getPRChangedFiles(
+/**
+ * Compare two commits. ADO diffs from their merge base by default, which is
+ * what a pull request shows. `$top` lifts the default page of 100 changes.
+ */
+export async function getCommitDiff(
   config: AppConfig,
   repoId: string,
   baseCommit: string,
   targetCommit: string,
-): Promise<string[]> {
-  const path = `git/repositories/${repoId}/diffs/commits?baseVersion=${baseCommit}&baseVersionType=commit&targetVersion=${targetCommit}&targetVersionType=commit&api-version=7.0`;
-  const data = await adoFetchWithRetry<DiffResponse>(config, path);
-  return data.changes.map((c) => c.item.path);
+): Promise<DiffResponse> {
+  const path = `git/repositories/${repoId}/diffs/commits?baseVersion=${baseCommit}&baseVersionType=commit&targetVersion=${targetCommit}&targetVersionType=commit&$top=2000&api-version=7.0`;
+  return adoFetchWithRetry<DiffResponse>(config, path);
+}
+
+/**
+ * Fetch a file's text at a commit, or `null` when ADO reports it as binary.
+ * `$format=json` makes ADO return the JSON envelope instead of the raw file.
+ */
+export async function getFileContentAtCommit(
+  config: AppConfig,
+  repoId: string,
+  filePath: string,
+  commitId: string,
+): Promise<string | null> {
+  const path = `git/repositories/${repoId}/items?path=${encodeURIComponent(filePath)}&versionDescriptor.version=${commitId}&versionDescriptor.versionType=commit&includeContent=true&$format=json&api-version=7.0`;
+  const data = await adoFetchWithRetry<GitItemResponse>(config, path);
+  if (data.contentMetadata?.isBinary) return null;
+  return data.content ?? '';
 }
 
 /**

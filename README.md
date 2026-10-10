@@ -10,7 +10,7 @@ There are two ways a note gets created:
 
 1. Polls Azure DevOps for completed PRs in configured repositories
 2. Finds linked work items missing the `Custom.ReleaseNotes` field
-3. Gathers PR context (title, description, changed files, work item type)
+3. Gathers PR context (title, description, changed files and their diff, work item type)
 4. Calls Claude to generate a release note in Continia HTML format
 5. Writes the release note back to the work item
 
@@ -21,7 +21,7 @@ request a note — even for work with no PR, or work whose PR was already proces
 
 1. Each poll cycle also scans for work items carrying the tag (a project-wide WIQL query)
 2. Gathers context from the work item (description + comments) **and** any related PRs
-   (title, description, changed files, discussion comments)
+   (title, description, changed files and their diff, discussion comments)
 3. Generates a note; if the work item already has a release note, the new note is **appended**
 4. Removes the `create-releasenote` tag so the item is not reprocessed
 

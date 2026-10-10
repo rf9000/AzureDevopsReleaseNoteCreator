@@ -63,13 +63,25 @@ export interface WorkItemResponse {
 
 /** A single change entry inside a diff response. */
 export interface DiffChange {
-  item: { path: string };
+  item: { path: string; gitObjectType?: string; isFolder?: boolean };
+  /** e.g. 'add', 'edit', 'delete', 'rename', 'edit, rename'. */
   changeType: string;
+  /** Previous path of a renamed file. */
+  sourceServerItem?: string;
 }
 
 /** Response shape for a commit diff query. */
 export interface DiffResponse {
   changes: DiffChange[];
+  /** Merge base of the two commits; ADO computes the diff from here, as a PR does. */
+  commonCommit?: string;
+}
+
+/** Response shape when fetching a single file from a repository with its content. */
+export interface GitItemResponse {
+  path: string;
+  content?: string;
+  contentMetadata?: { isBinary?: boolean };
 }
 
 /** Persisted state tracking which PRs have already been processed. */

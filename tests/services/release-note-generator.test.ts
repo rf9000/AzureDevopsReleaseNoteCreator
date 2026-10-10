@@ -113,6 +113,18 @@ describe('buildUserPrompt', () => {
     expect(prompt).toContain('...and 10 more files');
   });
 
+  test('includes the code diff and says code wins over descriptions', () => {
+    const prompt = buildUserPrompt({ ...baseContext, codeDiff: '--- /a.al\n+++ /a.al\n-old\n+new' });
+    expect(prompt).toContain('## Code Changes');
+    expect(prompt).toContain('<diff>\n--- /a.al\n+++ /a.al\n-old\n+new\n</diff>');
+    expect(prompt).toMatch(/the code is right/i);
+  });
+
+  test('omits the code changes section when there is no diff', () => {
+    expect(buildUserPrompt(baseContext)).not.toContain('## Code Changes');
+    expect(buildUserPrompt({ ...baseContext, codeDiff: '' })).not.toContain('## Code Changes');
+  });
+
   test('includes work item type and title', () => {
     const prompt = buildUserPrompt(baseContext);
     expect(prompt).toContain('**Type:** Bug');

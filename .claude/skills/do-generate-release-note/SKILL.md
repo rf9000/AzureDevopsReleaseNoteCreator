@@ -12,7 +12,7 @@ context. The note does not depend on a pull request existing — any description
 
 Use the first source that is available, in this order:
 
-1. **Supplied in the prompt** — pull-request title, description, changed files, and comments (this is what
+1. **Supplied in the prompt** — pull-request title, description, changed files, code diff, and comments (this is what
    the automated flow sends), or a diff pasted by the user.
 2. **The developer's repository**, when invoked interactively inside the repository that holds the change
    and nothing is supplied: the staged changes (`git diff --staged`), then the branch's diff against its

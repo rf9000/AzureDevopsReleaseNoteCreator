@@ -54,7 +54,7 @@ function makeDeps(overrides: Partial<PRProcessorDeps> = {}): PRProcessorDeps {
         url: 'https://example.com/100',
       }),
     ),
-    getPRChangedFiles: mock(() => Promise.resolve(['/src/index.ts', '/README.md'])),
+    getPRCodeChanges: mock(() => Promise.resolve({ files: ['/src/index.ts', '/README.md'], diff: '' })),
     updateWorkItemField: mock(() =>
       Promise.resolve({
         id: 100,
@@ -99,7 +99,7 @@ describe('processPR', () => {
     expect(deps.getPRWorkItems).toHaveBeenCalledTimes(1);
     // Should not fetch changed files or work items when there are no linked items
     expect(deps.getWorkItem).toHaveBeenCalledTimes(0);
-    expect(deps.getPRChangedFiles).toHaveBeenCalledTimes(0);
+    expect(deps.getPRCodeChanges).toHaveBeenCalledTimes(0);
   });
 
   test('PR with work item that has empty release notes generates and writes', async () => {
@@ -121,8 +121,8 @@ describe('processPR', () => {
           url: 'https://example.com/100',
         }),
       ),
-      getPRChangedFiles: mock(() =>
-        Promise.resolve(['/src/auth/login.ts']),
+      getPRCodeChanges: mock(() =>
+        Promise.resolve({ files: ['/src/auth/login.ts'], diff: '+fixed line' }),
       ),
       generateReleaseNote: mock(() => Promise.resolve('Fixed login bug')),
       updateWorkItemField: mock(() =>
@@ -152,6 +152,7 @@ describe('processPR', () => {
       prTitle: 'Add new feature',
       prDescription: 'Adds a great new feature to the system',
       changedFiles: ['/src/auth/login.ts'],
+      codeDiff: '+fixed line',
       workItemTitle: 'Fix login bug',
       workItemType: 'Bug',
       workItemDescription: '',
@@ -339,7 +340,7 @@ describe('processPR', () => {
           url: 'https://example.com/100',
         }),
       ),
-      getPRChangedFiles: mock(() =>
+      getPRCodeChanges: mock(() =>
         Promise.reject(new Error('Diff API failed')),
       ),
       generateReleaseNote: mock(() =>
@@ -356,12 +357,13 @@ describe('processPR', () => {
       errors: 0,
     });
 
-    // generateReleaseNote should have been called with empty changedFiles
+    // generateReleaseNote should have been called with no code context
     const genCall = (deps.generateReleaseNote as ReturnType<typeof mock>).mock.calls[0]!;
     expect(genCall[1]).toEqual({
       prTitle: 'Add new feature',
       prDescription: 'Adds a great new feature to the system',
       changedFiles: [], // empty because fetch failed
+      codeDiff: '',
       workItemTitle: 'Some feature',
       workItemType: 'User Story',
       workItemDescription: '',

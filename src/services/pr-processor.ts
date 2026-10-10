@@ -14,9 +14,11 @@ import type {
   WorkItemResponse,
 } from '../types/index.ts';
 import type { ReleaseNoteContext } from './release-note-generator.ts';
+import type { PRCodeChanges } from './code-diff.ts';
 
 import * as sdk from '../sdk/azure-devops-client.ts';
 import * as gen from './release-note-generator.ts';
+import * as codeDiff from './code-diff.ts';
 import { solutionFromAreaPath } from './solution.ts';
 
 // ---------------------------------------------------------------------------
@@ -35,12 +37,13 @@ export interface PRProcessorDeps {
     workItemId: number,
   ) => Promise<WorkItemResponse>;
 
-  getPRChangedFiles: (
+  getPRCodeChanges: (
     config: AppConfig,
     repoId: string,
     baseCommit: string,
     targetCommit: string,
-  ) => Promise<string[]>;
+    maxChars?: number,
+  ) => Promise<PRCodeChanges>;
 
   updateWorkItemField: (
     config: AppConfig,
@@ -65,7 +68,7 @@ export interface PRProcessorDeps {
 const defaultDeps: PRProcessorDeps = {
   getPRWorkItems: sdk.getPRWorkItems,
   getWorkItem: sdk.getWorkItem,
-  getPRChangedFiles: sdk.getPRChangedFiles,
+  getPRCodeChanges: codeDiff.getPRCodeChanges,
   updateWorkItemField: sdk.updateWorkItemField,
   updateWorkItemFields: sdk.updateWorkItemFields,
   generateReleaseNote: gen.generateReleaseNote,
@@ -110,20 +113,21 @@ export async function processPR(
     return result;
   }
 
-  // 2. Get changed files (for context — failure is non-fatal)
+  // 2. Get changed files and their diff (for context — failure is non-fatal)
   let changedFiles: string[] = [];
+  let diff = '';
   try {
-    changedFiles = await deps.getPRChangedFiles(
+    ({ files: changedFiles, diff } = await deps.getPRCodeChanges(
       config,
       pr.repository.id,
       pr.lastMergeTargetCommit.commitId,
       pr.lastMergeSourceCommit.commitId,
-    );
+    ));
   } catch (err) {
     log(
-      `  PR #${pr.pullRequestId}: Warning — could not fetch changed files: ${err}`,
+      `  PR #${pr.pullRequestId}: Warning — could not fetch code changes: ${err}`,
     );
-    // Continue without changed files — they're just extra context
+    // Continue without code changes — they're just extra context
   }
 
   // 3. For each work item
@@ -170,6 +174,7 @@ export async function processPR(
         prTitle: pr.title,
         prDescription: pr.description ?? '',
         changedFiles,
+        codeDiff: diff,
         workItemTitle,
         workItemType,
         workItemDescription,

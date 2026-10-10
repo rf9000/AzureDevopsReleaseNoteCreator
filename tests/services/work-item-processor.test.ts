@@ -16,6 +16,7 @@ import {
 } from '../../src/services/work-item-processor.ts';
 import type { WorkItemProcessorDeps } from '../../src/services/work-item-processor.ts';
 import { NO_RELEASE_NOTE_MARKER } from '../../src/services/release-note-generator.ts';
+import { MAX_DIFF_CHARS } from '../../src/services/code-diff.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -88,7 +89,7 @@ function makeDeps(overrides: Partial<WorkItemProcessorDeps> = {}): WorkItemProce
     getWorkItem: mock(() => Promise.resolve(mockWorkItem())),
     getWorkItemComments: mock(() => Promise.resolve([])),
     getPullRequest: mock(() => Promise.resolve(mockPR())),
-    getPRChangedFiles: mock(() => Promise.resolve(['/src/export.ts'])),
+    getPRCodeChanges: mock(() => Promise.resolve({ files: ['/src/export.ts'], diff: '+export line' })),
     getPRThreadComments: mock(() => Promise.resolve([])),
     updateWorkItemFields: mock(() =>
       Promise.resolve(mockWorkItem({ rev: 2 })),
@@ -216,6 +217,8 @@ describe('processTaggedWorkItem', () => {
     expect(genCtx.prTitle).toBe('Add new feature');
     expect(genCtx.workItemComments).toEqual(['A useful comment']);
     expect(genCtx.prComments).toEqual(['Reviewer note']);
+    expect(genCtx.changedFiles).toEqual(['/src/export.ts']);
+    expect(genCtx.codeDiff).toBe('+export line');
 
     // Wrote note and stripped the tag
     expect(deps.updateWorkItemFields).toHaveBeenCalledTimes(1);
@@ -226,6 +229,23 @@ describe('processTaggedWorkItem', () => {
     expect(tags?.value).toBe('area-export');
     // Tags MUST use op 'replace' — 'add' merges and can never remove the tag.
     expect(tags?.op).toBe('replace');
+  });
+
+  test('linked PRs share one diff budget', async () => {
+    const config = mockConfig();
+    const workItem = mockWorkItem({ relations: [prRelation('repo-1', 42), prRelation('repo-2', 43)] });
+    const getPRCodeChanges = mock((_c: AppConfig, repoId: string, _base: string, _target: string, _maxChars?: number) =>
+      Promise.resolve({ files: [`/${repoId}.al`], diff: repoId === 'repo-1' ? 'x'.repeat(1000) : '+second' }),
+    );
+    const deps = makeDeps({ getPRCodeChanges });
+
+    await processTaggedWorkItem(config, workItem, deps);
+
+    expect(getPRCodeChanges.mock.calls[0]![4]).toBe(MAX_DIFF_CHARS);
+    expect(getPRCodeChanges.mock.calls[1]![4]).toBe(MAX_DIFF_CHARS - 1000);
+    const genCtx = (deps.generateReleaseNote as ReturnType<typeof mock>).mock.calls[0]![1];
+    expect(genCtx.changedFiles).toEqual(['/repo-1.al', '/repo-2.al']);
+    expect(genCtx.codeDiff).toBe(`${'x'.repeat(1000)}\n+second`);
   });
 
   test('appends to an existing release note', async () => {

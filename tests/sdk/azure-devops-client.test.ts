@@ -7,7 +7,8 @@ import {
   listCompletedPRs,
   getPRWorkItems,
   getWorkItem,
-  getPRChangedFiles,
+  getCommitDiff,
+  getFileContentAtCommit,
   updateWorkItemField,
   updateWorkItemFields,
   queryWorkItemsByTag,
@@ -260,33 +261,61 @@ describe('getWorkItem', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getPRChangedFiles
+// getCommitDiff
 // ---------------------------------------------------------------------------
 
-describe('getPRChangedFiles', () => {
-  test('extracts file paths from changes', async () => {
+describe('getCommitDiff', () => {
+  test('requests the commit diff with a raised page size', async () => {
     const diff = {
+      commonCommit: 'base0',
       changes: [
         { item: { path: '/src/index.ts' }, changeType: 'edit' },
         { item: { path: '/README.md' }, changeType: 'add' },
       ],
     };
     setMockFetch(diff);
-    const config = mockConfig();
 
-    const result = await getPRChangedFiles(
-      config,
-      'repo-1',
-      'abc123',
-      'def456',
-    );
+    const result = await getCommitDiff(mockConfig(), 'repo-1', 'abc123', 'def456');
 
-    expect(result).toEqual(['/src/index.ts', '/README.md']);
+    expect(result).toEqual(diff);
     const url = mockFn.mock.calls[0]![0] as string;
     expect(url).toContain('git/repositories/repo-1/diffs/commits');
     expect(url).toContain('baseVersion=abc123');
     expect(url).toContain('targetVersion=def456');
+    expect(url).toContain('$top=2000');
     expect(url).toContain('api-version=7.0');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getFileContentAtCommit
+// ---------------------------------------------------------------------------
+
+describe('getFileContentAtCommit', () => {
+  test('returns the file text at the commit', async () => {
+    setMockFetch({ path: '/src/My Page.al', content: 'page 50100 {}' });
+
+    const result = await getFileContentAtCommit(mockConfig(), 'repo-1', '/src/My Page.al', 'abc123');
+
+    expect(result).toBe('page 50100 {}');
+    const url = mockFn.mock.calls[0]![0] as string;
+    expect(url).toContain('git/repositories/repo-1/items?path=%2Fsrc%2FMy%20Page.al');
+    expect(url).toContain('versionDescriptor.version=abc123');
+    expect(url).toContain('versionDescriptor.versionType=commit');
+    expect(url).toContain('includeContent=true');
+    expect(url).toContain('$format=json');
+  });
+
+  test('returns null for a binary file', async () => {
+    setMockFetch({ path: '/logo.bin', content: 'AAEC', contentMetadata: { isBinary: true } });
+
+    expect(await getFileContentAtCommit(mockConfig(), 'repo-1', '/logo.bin', 'abc123')).toBeNull();
+  });
+
+  test('returns an empty string for an empty file', async () => {
+    setMockFetch({ path: '/empty.txt' });
+
+    expect(await getFileContentAtCommit(mockConfig(), 'repo-1', '/empty.txt', 'abc123')).toBe('');
   });
 });
 
