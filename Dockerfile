@@ -18,8 +18,12 @@ RUN bun update @anthropic-ai/claude-agent-sdk --latest && \
 
 COPY . .
 
-# Claude Code Agent SDK uses --dangerously-skip-permissions which is blocked for root
-RUN useradd -m -s /bin/bash claude && \
+# Claude Code Agent SDK uses --dangerously-skip-permissions which is blocked for root.
+# Align claude to UID/GID 1000 so it matches the host user that owns the bind-mounted
+# ~/.claude — otherwise the host (1000) and container clash over that shared dir (EACCES).
+# The base oven/bun image already holds 1000 for its `bun` user, so renumber it out first.
+RUN usermod -u 1100 bun && groupmod -g 1100 bun && \
+    useradd -m -s /bin/bash -u 1000 -U claude && \
     chown -R claude:claude /app
 
 # Install Claude Code CLI as non-root user (MUST use | bash, not | sh)
