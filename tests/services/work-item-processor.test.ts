@@ -34,6 +34,7 @@ function mockConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     claudeModel: 'claude-sonnet-4-20250514',
     releaseNotePromptPath: './prompt.md',
     stateDir: '.state',
+    costLogPath: '.state/cost-ledger.jsonl',
     dryRun: false,
     assignedToFilter: null,
     lookbackDays: 7,
@@ -334,6 +335,46 @@ describe('processTaggedWorkItem', () => {
     expect(result.written).toBeUndefined();
   });
 
+  test('a written note gives a completed ledger line with the run cost and solution', async () => {
+    const workItem = mockWorkItem({
+      fields: { 'System.Title': 'X', 'System.AreaPath': 'Continia Software\\Continia Banking\\Connectivity' },
+    });
+    const deps = makeDeps({
+      generateReleaseNote: mock((_c: AppConfig, _ctx: unknown, onCost?: (usd: number) => void) => {
+        onCost?.(0.4321);
+        return Promise.resolve('<p>Note.</p>');
+      }),
+    });
+
+    const result = await processTaggedWorkItem(mockConfig(), workItem, deps);
+
+    expect(result.ledger).toEqual([
+      { at: expect.any(String), workItemId: 100, outcome: 'completed', costUsd: 0.4321, title: 'X', product: 'Continia Banking' },
+    ]);
+  });
+
+  test('the internal-only marker gives a skipped ledger line that keeps the cost', async () => {
+    const deps = makeDeps({
+      generateReleaseNote: mock((_c: AppConfig, _ctx: unknown, onCost?: (usd: number) => void) => {
+        onCost?.(0.1);
+        return Promise.resolve(NO_RELEASE_NOTE_MARKER);
+      }),
+    });
+
+    const result = await processTaggedWorkItem(mockConfig(), mockWorkItem(), deps);
+
+    expect(result.ledger).toEqual([
+      {
+        at: expect.any(String),
+        workItemId: 100,
+        outcome: 'skipped',
+        costUsd: 0.1,
+        title: 'Improve export',
+        reason: 'no customer-facing change',
+      },
+    ]);
+  });
+
   test('dry-run generates but does not write and leaves the tag', async () => {
     const config = mockConfig({ dryRun: true });
     const workItem = mockWorkItem({ relations: [prRelation('repo-1', 42)] });
@@ -355,7 +396,10 @@ describe('processTaggedWorkItem', () => {
 
     const result = await processTaggedWorkItem(config, workItem, deps);
 
-    expect(result).toEqual({ workItemId: 100, processed: 0, skipped: 0, errors: 1 });
+    expect(result).toMatchObject({ workItemId: 100, processed: 0, skipped: 0, errors: 1 });
+    expect(result.ledger).toEqual([
+      { at: expect.any(String), workItemId: 100, outcome: 'failed', costUsd: 0, title: 'Improve export', error: 'Error: SDK failed' },
+    ]);
     expect(deps.updateWorkItemFields).toHaveBeenCalledTimes(0);
   });
 

@@ -1,3 +1,4 @@
+import { join } from "path";
 import { z } from "zod";
 import type { AppConfig } from "../types/index.ts";
 
@@ -14,6 +15,7 @@ const envSchema = z.object({
   CLAUDE_MODEL: z.string().default("claude-opus-4-6"),
   RELEASE_NOTE_PROMPT_PATH: z.string().default(".claude/skills/do-generate-release-note/SKILL.md"),
   STATE_DIR: z.string().default(".state"),
+  COST_LOG_PATH: z.string().optional(),
   ASSIGNED_TO_FILTER: z.string().optional(),
   LOOKBACK_DAYS: z.coerce.number().default(7),
   RELEASE_NOTE_TAG: z.string().default("create-releasenote"),
@@ -53,6 +55,7 @@ export function loadConfig(
     claudeModel: parsed.CLAUDE_MODEL,
     releaseNotePromptPath: parsed.RELEASE_NOTE_PROMPT_PATH,
     stateDir: parsed.STATE_DIR,
+    costLogPath: parsed.COST_LOG_PATH ?? join(parsed.STATE_DIR, "cost-ledger.jsonl"),
     dryRun: false,
     assignedToFilter: parsed.ASSIGNED_TO_FILTER ?? null,
     lookbackDays: parsed.LOOKBACK_DAYS,

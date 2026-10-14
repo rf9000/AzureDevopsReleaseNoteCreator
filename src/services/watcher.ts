@@ -9,10 +9,12 @@
 import type {
   AppConfig,
   AzureDevOpsPullRequest,
+  LedgerRecord,
   PRProcessResult,
   WrittenNote,
 } from '../types/index.ts';
 import { StateStore } from '../state/state-store.ts';
+import { appendCostRecord } from '../state/cost-ledger.ts';
 import * as sdk from '../sdk/azure-devops-client.ts';
 import * as proc from './pr-processor.ts';
 import * as wiProc from './work-item-processor.ts';
@@ -35,7 +37,16 @@ export interface WatcherDeps {
 
   scanTaggedWorkItems: (
     config: AppConfig,
-  ) => Promise<{ processed: number; skipped: number; errors: number; written?: WrittenNote[] }>;
+  ) => Promise<{
+    processed: number;
+    skipped: number;
+    errors: number;
+    written?: WrittenNote[];
+    ledger?: LedgerRecord[];
+  }>;
+
+  /** Append one line to the cost ledger, the full processed history. */
+  recordLedger: (config: AppConfig, record: LedgerRecord) => void;
 }
 
 /** Default production dependencies wired to the real modules. */
@@ -43,6 +54,7 @@ const defaultDeps: WatcherDeps = {
   listCompletedPRs: sdk.listCompletedPRs,
   processPR: proc.processPR,
   scanTaggedWorkItems: wiProc.scanTaggedWorkItems,
+  recordLedger: (config, record) => appendCostRecord(config.costLogPath, record),
 };
 
 // ---------------------------------------------------------------------------
@@ -66,6 +78,19 @@ export async function runPollCycle(
   let totalProcessed = 0;
   let totalSkipped = 0;
   let totalErrors = 0;
+
+  // Best-effort: a ledger write must never fail a PR or a work item. Dry runs
+  // write nothing, as with every other side effect.
+  const recordLedger = (records: LedgerRecord[] | undefined) => {
+    if (config.dryRun) return;
+    for (const record of records ?? []) {
+      try {
+        deps.recordLedger(config, record);
+      } catch (err) {
+        log(`  WI #${record.workItemId}: Warning — failed to write the cost ledger: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  };
 
   for (const repoId of config.repoIds) {
     log(`Polling repo ${repoId}...`);
@@ -94,6 +119,7 @@ export async function runPollCycle(
         totalSkipped += result.skipped;
         totalErrors += result.errors;
         for (const n of result.written ?? []) stateStore.markWritten(n.workItemId, new Date(), n.solution);
+        recordLedger(result.ledger);
 
         if (result.errors === 0) {
           stateStore.markProcessed(pr.pullRequestId);
@@ -117,6 +143,7 @@ export async function runPollCycle(
     totalSkipped += tagResult.skipped;
     totalErrors += tagResult.errors;
     for (const n of tagResult.written ?? []) stateStore.markWritten(n.workItemId, new Date(), n.solution);
+    recordLedger(tagResult.ledger);
   } catch (err) {
     log(`  Tag scan failed: ${err}`);
     totalErrors++;

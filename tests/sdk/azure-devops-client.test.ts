@@ -36,6 +36,7 @@ function mockConfig(): AppConfig {
     claudeModel: 'claude-sonnet-4-20250514',
     releaseNotePromptPath: './prompt.md',
     stateDir: '.state',
+    costLogPath: '.state/cost-ledger.jsonl',
     dryRun: false,
     assignedToFilter: null,
     lookbackDays: 7,

@@ -16,6 +16,7 @@ import type {
   WorkItemRelation,
   WorkItemResponse,
   WrittenNote,
+  LedgerRecord,
 } from '../types/index.ts';
 import type { ReleaseNoteContext } from './release-note-generator.ts';
 import type { PRCodeChanges } from './code-diff.ts';
@@ -85,6 +86,7 @@ export interface WorkItemProcessorDeps {
   generateReleaseNote: (
     config: AppConfig,
     context: ReleaseNoteContext,
+    onCost?: (usd: number) => void,
   ) => Promise<string>;
 
   queryWorkItemsByTag: (
@@ -116,6 +118,8 @@ export interface WorkItemProcessResult {
   skipped: number;
   errors: number;
   written?: WrittenNote[];
+  /** The ledger line for this run, when it got past fetching the work item. */
+  ledger?: LedgerRecord[];
 }
 
 // ---------------------------------------------------------------------------
@@ -338,6 +342,23 @@ export async function processTaggedWorkItem(
   const workItemTitle = String(workItem.fields['System.Title'] ?? '');
   log(`Processing tagged WI #${workItemId}: ${workItemTitle}`);
 
+  const product = solutionFromAreaPath(String(workItem.fields['System.AreaPath'] ?? ''));
+  let costUsd = 0;
+  const addLedger = (
+    outcome: LedgerRecord['outcome'],
+    detail: { reason?: string; error?: string } = {},
+  ) => {
+    (result.ledger ??= []).push({
+      at: new Date().toISOString(),
+      workItemId,
+      outcome,
+      costUsd: Math.round(costUsd * 10_000) / 10_000,
+      ...(workItemTitle ? { title: workItemTitle } : {}),
+      ...(product ? { product } : {}),
+      ...detail,
+    });
+  };
+
   let failureCategory: FailureCategory = 'generate';
 
   try {
@@ -369,7 +390,9 @@ export async function processTaggedWorkItem(
     };
 
     log(`  WI #${workItemId}: Generating release note...`);
-    const note = await deps.generateReleaseNote(config, context);
+    const note = await deps.generateReleaseNote(config, context, (usd) => {
+      costUsd += usd;
+    });
 
     if (config.dryRun) {
       log(`  WI #${workItemId}: [DRY RUN] Generated (tag NOT removed):\n    "${note}"`);
@@ -422,12 +445,16 @@ export async function processTaggedWorkItem(
     }
 
     if (note !== gen.NO_RELEASE_NOTE_MARKER) {
-      result.written = [{ workItemId, solution: solutionFromAreaPath(String(workItem.fields['System.AreaPath'] ?? '')) }];
+      result.written = [{ workItemId, solution: product }];
+      addLedger('completed');
+    } else {
+      addLedger('skipped', { reason: 'no customer-facing change' });
     }
     result.processed++;
   } catch (err) {
     log(`  WI #${workItemId}: Error — ${err}`);
     result.errors++;
+    addLedger('failed', { error: String(err) });
     // Tell the human on the work item why nothing happened (once per category);
     // the tag is left in place so the item is retried on the next scan.
     await postFailureCommentOnce(config, workItemId, failureCategory, deps);
@@ -443,11 +470,12 @@ export async function processTaggedWorkItem(
 export async function scanTaggedWorkItems(
   config: AppConfig,
   deps: WorkItemProcessorDeps = defaultDeps,
-): Promise<{ processed: number; skipped: number; errors: number; written: WrittenNote[] }> {
+): Promise<{ processed: number; skipped: number; errors: number; written: WrittenNote[]; ledger: LedgerRecord[] }> {
   let processed = 0;
   let skipped = 0;
   let errors = 0;
   const written: WrittenNote[] = [];
+  const ledger: LedgerRecord[] = [];
 
   const ids = await deps.queryWorkItemsByTag(config, config.releaseNoteTag);
   log(`Tag scan: ${ids.length} work item(s) tagged "${config.releaseNoteTag}"`);
@@ -460,11 +488,13 @@ export async function scanTaggedWorkItems(
       skipped += result.skipped;
       errors += result.errors;
       written.push(...(result.written ?? []));
+      ledger.push(...(result.ledger ?? []));
     } catch (err) {
       log(`  WI #${id}: Fatal error — ${err}`);
       errors++;
+      ledger.push({ at: new Date().toISOString(), workItemId: id, outcome: 'failed', costUsd: 0, error: String(err) });
     }
   }
 
-  return { processed, skipped, errors, written };
+  return { processed, skipped, errors, written, ledger };
 }

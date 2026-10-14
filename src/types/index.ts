@@ -14,6 +14,8 @@ export interface AppConfig {
   claudeModel: string;
   releaseNotePromptPath: string;
   stateDir: string;
+  /** JSONL ledger, one line per release-note run (default: <STATE_DIR>/cost-ledger.jsonl). */
+  costLogPath: string;
   dryRun: boolean;
   /** If set, only process work items assigned to this display name. */
   assignedToFilter: string | null;
@@ -102,6 +104,29 @@ export interface WrittenNote {
   solution: string | null;
 }
 
+/**
+ * One line of the cost ledger, the same format the sibling DevOps agents write,
+ * so the dashboard reads every agent's history with one parser.
+ */
+export interface LedgerRecord {
+  /** ISO timestamp of when the run finished. */
+  at: string;
+  workItemId: number;
+  /** skipped = the agent found no customer-facing change, so no note was written. */
+  outcome: 'completed' | 'failed' | 'skipped';
+  /** USD the Agent SDK reported for this run; 0 when no agent ran. */
+  costUsd: number;
+  title?: string;
+  /** Solution from the work item's area path, e.g. "Continia Banking". */
+  product?: string;
+  /** The completed PR that triggered the run; absent for tag-driven runs. */
+  prId?: number;
+  /** Why no note was written. */
+  reason?: string;
+  /** The error of a failed run. */
+  error?: string;
+}
+
 /** Result summary after processing a single pull request. */
 export interface PRProcessResult {
   prId: number;
@@ -109,4 +134,6 @@ export interface PRProcessResult {
   skipped: number;
   errors: number;
   written?: WrittenNote[];
+  /** One ledger line per work item the agent ran for. */
+  ledger?: LedgerRecord[];
 }

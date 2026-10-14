@@ -19,6 +19,7 @@ function mockConfig(): AppConfig {
     claudeModel: 'claude-sonnet-4-20250514',
     releaseNotePromptPath: './prompt.md',
     stateDir: '.state',
+    costLogPath: '.state/cost-ledger.jsonl',
     dryRun: false,
     assignedToFilter: null,
     lookbackDays: 7,
@@ -204,6 +205,42 @@ describe('processPR', () => {
     expect(deps.updateWorkItemField).toHaveBeenCalledTimes(0);
   });
 
+  test('a written note gives a completed ledger line with the run cost, solution and PR', async () => {
+    const deps = makeDeps({
+      getPRWorkItems: mock(() => Promise.resolve([{ id: '300', url: 'https://example.com/300' }])),
+      getWorkItem: mock(() =>
+        Promise.resolve({
+          id: 300,
+          fields: {
+            'System.Title': 'New feature',
+            'System.WorkItemType': 'Bug',
+            'System.AreaPath': 'Continia Software\\Continia Banking',
+          },
+          rev: 1,
+          url: 'https://example.com/300',
+        }),
+      ),
+      generateReleaseNote: mock((_c: AppConfig, _ctx: unknown, onCost?: (usd: number) => void) => {
+        onCost?.(0.2);
+        return Promise.resolve('<p>Note.</p>');
+      }),
+    });
+
+    const result = await processPR(mockConfig(), mockPR(), deps);
+
+    expect(result.ledger).toEqual([
+      {
+        at: expect.any(String),
+        workItemId: 300,
+        outcome: 'completed',
+        costUsd: 0.2,
+        title: 'New feature',
+        product: 'Continia Banking',
+        prId: 42,
+      },
+    ]);
+  });
+
   test('PR with work item where generation fails counts as error', async () => {
     const config = mockConfig();
     const pr = mockPR();
@@ -234,6 +271,17 @@ describe('processPR', () => {
       processed: 0,
       skipped: 0,
       errors: 1,
+      ledger: [
+        {
+          at: expect.any(String),
+          workItemId: 300,
+          outcome: 'failed',
+          costUsd: 0,
+          title: 'Broken feature',
+          prId: 42,
+          error: 'Error: Claude API error',
+        },
+      ],
     });
 
     // Should NOT have called updateWorkItemField since generation failed

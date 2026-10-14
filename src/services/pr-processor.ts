@@ -9,6 +9,7 @@
 import type {
   AppConfig,
   AzureDevOpsPullRequest,
+  LedgerRecord,
   PRProcessResult,
   PRWorkItemRef,
   WorkItemResponse,
@@ -61,6 +62,7 @@ export interface PRProcessorDeps {
   generateReleaseNote: (
     config: AppConfig,
     context: ReleaseNoteContext,
+    onCost?: (usd: number) => void,
   ) => Promise<string>;
 }
 
@@ -133,9 +135,30 @@ export async function processPR(
   // 3. For each work item
   for (const ref of workItemRefs) {
     const workItemId = Number(ref.id);
+    // What the ledger line for this work item carries; filled in as it is known.
+    let costUsd = 0;
+    let title = '';
+    let product: string | null = null;
+    const addLedger = (
+      outcome: LedgerRecord['outcome'],
+      detail: { reason?: string; error?: string } = {},
+    ) => {
+      (result.ledger ??= []).push({
+        at: new Date().toISOString(),
+        workItemId,
+        outcome,
+        costUsd: Math.round(costUsd * 10_000) / 10_000,
+        ...(title ? { title } : {}),
+        ...(product ? { product } : {}),
+        prId: pr.pullRequestId,
+        ...detail,
+      });
+    };
     try {
       // 3a. Get the full work item
       const workItem = await deps.getWorkItem(config, workItemId);
+      title = String(workItem.fields['System.Title'] ?? '');
+      product = solutionFromAreaPath(String(workItem.fields['System.AreaPath'] ?? ''));
 
       // 3b. Check assigned-to filter (safeguard)
       if (config.assignedToFilter) {
@@ -181,7 +204,9 @@ export async function processPR(
       };
 
       log(`  WI #${workItemId}: Generating release note...`);
-      const releaseNote = await deps.generateReleaseNote(config, context);
+      const releaseNote = await deps.generateReleaseNote(config, context, (usd) => {
+        costUsd += usd;
+      });
 
       if (config.dryRun) {
         log(`  WI #${workItemId}: [DRY RUN] Generated:\n    "${releaseNote}"`);
@@ -217,15 +242,16 @@ export async function processPR(
         log(`  WI #${workItemId}: Release note written`);
       }
       if (releaseNote !== gen.NO_RELEASE_NOTE_MARKER) {
-        (result.written ??= []).push({
-          workItemId,
-          solution: solutionFromAreaPath(String(workItem.fields['System.AreaPath'] ?? '')),
-        });
+        (result.written ??= []).push({ workItemId, solution: product });
+        addLedger('completed');
+      } else {
+        addLedger('skipped', { reason: 'no customer-facing change' });
       }
       result.processed++;
     } catch (err) {
       log(`  WI #${workItemId}: Error — ${err}`);
       result.errors++;
+      addLedger('failed', { error: String(err) });
       // Continue with other work items
     }
   }

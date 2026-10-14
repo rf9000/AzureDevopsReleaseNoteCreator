@@ -56,6 +56,7 @@ cp .env.example .env
 | `CLAUDE_MODEL` | `claude-opus-4-6` | Claude model to use |
 | `RELEASE_NOTE_PROMPT_PATH` | `.claude/skills/do-generate-release-note/SKILL.md` | Path to the prompt file (see [Release note format](#release-note-format)) |
 | `STATE_DIR` | `.state` | Directory for processed PR state |
+| `COST_LOG_PATH` | `<STATE_DIR>/cost-ledger.jsonl` | Cost ledger: one JSON line per release-note run, the full processed history |
 | `DEBUG` | _(unset)_ | Set to any value to enable verbose SDK message logging (see [Debugging](#debugging)) |
 
 ## Commands

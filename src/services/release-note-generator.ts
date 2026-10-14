@@ -56,9 +56,14 @@ export interface ReleaseNoteContext {
   additionalPrDescriptions?: string[];
 }
 
+/**
+ * `onCost` receives the run's USD as soon as the SDK reports it, also when the
+ * run then fails, so the cost ledger records a failed run's spend too.
+ */
 export async function generateReleaseNote(
   config: AppConfig,
   context: ReleaseNoteContext,
+  onCost?: (usd: number) => void,
 ): Promise<string> {
   // 1. Read system prompt from config.releaseNotePromptPath, expanding @includes
   const systemPrompt = loadSystemPrompt(config.releaseNotePromptPath);
@@ -115,6 +120,7 @@ export async function generateReleaseNote(
         if (cost !== undefined || usage || turns !== undefined) {
           log(`    Model: ${models} | Cost: $${(cost ?? 0).toFixed(4)} | ${usage?.input_tokens ?? 0} in / ${usage?.output_tokens ?? 0} out | ${turns ?? 0} turns`);
         }
+        if (cost !== undefined) onCost?.(cost);
 
         if (message.subtype === 'success') {
           result = message.result;

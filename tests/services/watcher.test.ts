@@ -23,6 +23,7 @@ function mockConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     claudeModel: 'claude-sonnet-4-20250514',
     releaseNotePromptPath: './prompt.md',
     stateDir: '.state',
+    costLogPath: '.state/cost-ledger.jsonl',
     dryRun: false,
     assignedToFilter: null,
     lookbackDays: 7,
@@ -57,6 +58,7 @@ function makeDeps(overrides: Partial<WatcherDeps> = {}): WatcherDeps {
     scanTaggedWorkItems: mock(() =>
       Promise.resolve({ processed: 0, skipped: 0, errors: 0 }),
     ),
+    recordLedger: mock(() => {}),
     ...overrides,
   };
 }
@@ -285,5 +287,54 @@ describe('runPollCycle', () => {
     const raw = JSON.parse(require('fs').readFileSync(join(tmpDir, 'processed-prs.json'), 'utf-8'));
     expect(Object.keys(raw.writtenAt).sort()).toEqual(['5', '6']);
     expect(raw.writtenProduct).toEqual({ '5': 'Continia Banking' });
+  });
+
+  const line = (workItemId: number, outcome: 'completed' | 'failed' | 'skipped') => ({
+    at: '2026-10-13T09:00:00.000Z',
+    workItemId,
+    outcome,
+    costUsd: 0.25,
+  });
+
+  test('writes the ledger lines of both the PR flow and the tag scan', async () => {
+    const deps = makeDeps({
+      listCompletedPRs: mock(() => Promise.resolve([mockPR({ pullRequestId: 101 })])),
+      processPR: mock(() =>
+        Promise.resolve({ prId: 101, processed: 1, skipped: 0, errors: 1, ledger: [line(5, 'completed'), line(7, 'failed')] }),
+      ),
+      scanTaggedWorkItems: mock(() =>
+        Promise.resolve({ processed: 1, skipped: 0, errors: 0, ledger: [line(6, 'skipped')] }),
+      ),
+    });
+
+    await runPollCycle(mockConfig(), stateStore, deps);
+
+    const written = (deps.recordLedger as ReturnType<typeof mock>).mock.calls.map((c) => (c as unknown[])[1]);
+    expect(written).toEqual([line(5, 'completed'), line(7, 'failed'), line(6, 'skipped')]);
+  });
+
+  test('a dry run writes no ledger lines', async () => {
+    const deps = makeDeps({
+      scanTaggedWorkItems: mock(() =>
+        Promise.resolve({ processed: 1, skipped: 0, errors: 0, ledger: [line(6, 'completed')] }),
+      ),
+    });
+    await runPollCycle(mockConfig({ dryRun: true }), stateStore, deps);
+    expect(deps.recordLedger).toHaveBeenCalledTimes(0);
+  });
+
+  test('a ledger write failure does not fail the PR', async () => {
+    const deps = makeDeps({
+      listCompletedPRs: mock(() => Promise.resolve([mockPR({ pullRequestId: 101 })])),
+      processPR: mock(() =>
+        Promise.resolve({ prId: 101, processed: 1, skipped: 0, errors: 0, ledger: [line(5, 'completed')] }),
+      ),
+      recordLedger: mock(() => {
+        throw new Error('disk full');
+      }),
+    });
+    const result = await runPollCycle(mockConfig(), stateStore, deps);
+    expect(result.errors).toBe(0);
+    expect(stateStore.isProcessed(101)).toBe(true);
   });
 });
